@@ -45,27 +45,28 @@ def health_check():
 @app.get("/db-check")
 def db_check():
     """Temporary diagnostic endpoint — exposes DB connection errors for debugging."""
-    import os
+    import os, traceback
     db_url = os.environ.get("DATABASE_URL", "NOT SET")
-    # Mask password
     import re
     masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
     try:
         from sqlalchemy import text, inspect
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        # Check tables
         inspector = inspect(engine)
         tables = inspector.get_table_names()
-        # Try a real query on agents
+        # Simulate full register logic
         try:
             from app.models.models import Agent
             from app.core.database import SessionLocal
+            from app.core.security import hash_password
             db = SessionLocal()
             count = db.query(Agent).count()
+            # Try creating a test agent object (don't commit)
+            test_agent = Agent(name="test", email="test_diag@x.com", hashed_password=hash_password("x"))
             db.close()
-            return {"db": "ok", "url": masked, "tables": tables, "agents_count": count}
+            return {"db": "ok", "url": masked, "tables": tables, "agents_count": count, "hash_test": "ok"}
         except Exception as e2:
-            return {"db": "partial", "url": masked, "tables": tables, "agents_error": str(e2)}
+            return {"db": "partial", "url": masked, "tables": tables, "error": str(e2), "trace": traceback.format_exc()[-500:]}
     except Exception as e:
-        return {"db": "error", "url": masked, "error": str(e), "type": type(e).__name__}
+        return {"db": "error", "url": masked, "error": str(e), "trace": traceback.format_exc()[-500:]}

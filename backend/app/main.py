@@ -70,3 +70,26 @@ def db_check():
             return {"db": "partial", "url": masked, "tables": tables, "error": str(e2), "trace": traceback.format_exc()[-500:]}
     except Exception as e:
         return {"db": "error", "url": masked, "error": str(e), "trace": traceback.format_exc()[-500:]}
+
+
+@app.post("/test-register")
+def test_register():
+    """Diagnostic: attempt a real register and return the traceback on failure."""
+    import traceback, uuid as _uuid
+    from app.models.models import Agent
+    from app.core.database import SessionLocal
+    from app.core.security import hash_password
+    tag = str(_uuid.uuid4())[:8]
+    db = SessionLocal()
+    try:
+        a = Agent(name=f"test_{tag}", email=f"test_{tag}@diag.com", hashed_password=hash_password("x"))
+        db.add(a)
+        db.commit()
+        db.refresh(a)
+        result = {"id": a.id, "name": a.name, "email": a.email, "is_active": a.is_active, "created_at": str(a.created_at)}
+        return {"status": "ok", "agent": result}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "error": str(e), "trace": traceback.format_exc()[-1000:]}
+    finally:
+        db.close()

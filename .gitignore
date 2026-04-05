@@ -82,7 +82,7 @@ secrets/
 aws/ec2-info.txt
 
 # ========================
-# Misc
+# Misc / Tests / Cache
 # ========================
 *.pptx
 *.xlsx
@@ -92,3 +92,9 @@ simple_presentation.pptx
 Comprehensive_Sales_Presentation.pptx
 .vercel
 .playwright-mcp
+tests/
+.venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

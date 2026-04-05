@@ -40,3 +40,20 @@ app.include_router(admin.router)
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "Convoflow AI API"}
+
+
+@app.get("/db-check")
+def db_check():
+    """Temporary diagnostic endpoint — exposes DB connection errors for debugging."""
+    import os
+    db_url = os.environ.get("DATABASE_URL", "NOT SET")
+    # Mask password
+    import re
+    masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"db": "ok", "url": masked}
+    except Exception as e:
+        return {"db": "error", "url": masked, "error": str(e), "type": type(e).__name__}

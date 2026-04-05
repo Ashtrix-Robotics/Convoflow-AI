@@ -1,0 +1,240 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - link "logo" [ref=e6] [cursor=pointer]:
+      - /url: /v2/app/dashboard
+      - img "logo" [ref=e7]
+    - navigation [ref=e8]:
+      - list [ref=e9]:
+        - listitem [ref=e10]:
+          - list [ref=e11]:
+            - listitem [ref=e12]:
+              - link "Dashboard" [ref=e13] [cursor=pointer]:
+                - /url: /v2/app/dashboard
+                - generic [ref=e16]: Dashboard
+            - listitem [ref=e17]:
+              - link "Workflow" [ref=e18] [cursor=pointer]:
+                - /url: https://connect.pabbly.com/workflow/mapping/
+                - generic [ref=e21]: Workflow
+            - listitem [ref=e22]:
+              - link "History" [ref=e23] [cursor=pointer]:
+                - /url: /v2/app/history/task-history
+                - generic [ref=e26]: History
+            - listitem [ref=e27]:
+              - link "Action Builder" [ref=e28] [cursor=pointer]:
+                - /url: https://connect.pabbly.com/action-builder/
+                - generic [ref=e31]: Action Builder
+            - listitem [ref=e32]:
+              - link "Settings" [ref=e33] [cursor=pointer]:
+                - /url: /v2/app/setting
+                - generic [ref=e36]: Settings
+        - listitem [ref=e37]:
+          - list [ref=e38]:
+            - listitem [ref=e39]:
+              - link "Get Help" [ref=e40] [cursor=pointer]:
+                - /url: /v2/app/gethelp
+                - generic [ref=e43]: Get Help
+  - generic [ref=e44]:
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - strong [ref=e49]: "[LIMITED TIME OFFER]"
+        - generic [ref=e50]: $194/year
+        - strong [ref=e51]: $349
+        - text: for lifetime access.
+      - button "GRAB THIS OFFER" [ref=e53] [cursor=pointer]:
+        - img [ref=e55]
+        - text: GRAB THIS OFFER
+    - banner [ref=e57]:
+      - generic [ref=e59]:
+        - img "logo" [ref=e60] [cursor=pointer]
+        - button "Click here to access Pabbly Connect quick links." [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+        - generic [ref=e64]:
+          - generic "You can search workflow from here." [ref=e65] [cursor=pointer]:
+            - button [ref=e66]:
+              - img [ref=e67]
+            - generic [ref=e69]: Search Workflow by Name or Webhook URL
+          - link "Click here to purchase tasks." [ref=e71] [cursor=pointer]:
+            - /url: https://www.pabbly.com/connect/#pricing
+            - text: Upgrade
+          - button "Easily access all your Pabbly application from here." [ref=e72] [cursor=pointer]:
+            - img [ref=e73]
+          - generic "Click here to see your account or manage your subscription." [ref=e75]:
+            - button "Rohit N" [ref=e76] [cursor=pointer]:
+              - img "Rohit N" [ref=e79]
+    - main [ref=e81]:
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e85]:
+            - heading "Dashboard" [level=4] [ref=e86]
+            - paragraph [ref=e87]:
+              - text: Create & manage all of your automation workflows in one place with Pabbly Connect Dashboard.
+              - link "Learn more" [ref=e88] [cursor=pointer]:
+                - /url: https://www.youtube.com/playlist?list=PLgffPJ6GjbaIZTlTtPyVtCLJ43RyaLS-U
+          - button "Start building a new automation workflow." [ref=e89] [cursor=pointer]:
+            - img [ref=e91]
+            - text: Create Workflow
+            - img [ref=e94]
+        - generic [ref=e96]:
+          - generic "Number of tasks allotted to your account." [ref=e97]:
+            - generic [ref=e99]:
+              - paragraph [ref=e100]: "10000"
+              - generic [ref=e101]: Tasks Allotted
+          - generic "Number of tasks consumed till now in your account." [ref=e104]:
+            - generic [ref=e106]:
+              - paragraph [ref=e107]: "144"
+              - generic [ref=e108]: Tasks Consumed
+          - generic "Number of tasks remaining in your account." [ref=e111]:
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: "9856"
+              - generic [ref=e115]: Tasks Remaining
+          - generic "Number of free tasks consumed in the last 30 days." [ref=e118]:
+            - generic [ref=e120]:
+              - paragraph [ref=e121]: "7482"
+              - generic [ref=e122]: Free Tasks Consumed
+        - generic [ref=e125]:
+          - generic [ref=e128]:
+            - heading "Folders Create a new folder." [level=6] [ref=e129]:
+              - generic [ref=e130]:
+                - generic [ref=e131]: Folders
+                - button "Create a new folder." [ref=e132] [cursor=pointer]:
+                  - img [ref=e133]
+            - separator [ref=e135]
+            - generic [ref=e136]:
+              - region "scrollable content" [ref=e141]:
+                - generic [ref=e142]:
+                  - tree "Home Folder" [ref=e144]:
+                    - treeitem "Home Number of workflows in this folder" [ref=e827]:
+                      - generic [ref=e834] [cursor=pointer]:
+                        - generic [ref=e836]: Home
+                        - generic "Number of workflows in this folder" [ref=e837]: (0)
+                  - tree "Custom Folders" [ref=e158]:
+                    - treeitem "Accounts Number of workflows in this folder Click to see options." [ref=e840]:
+                      - generic [ref=e845] [cursor=pointer]:
+                        - generic [ref=e847]:
+                          - generic [ref=e849]: Accounts
+                          - generic "Number of workflows in this folder" [ref=e850]: (3)
+                        - button "Click to see options." [ref=e853]:
+                          - img "Options" [ref=e854]
+                    - treeitem "Marketing Number of workflows in this folder Click to see options." [expanded] [ref=e856]:
+                      - generic [ref=e857] [cursor=pointer]:
+                        - img [ref=e859]
+                        - generic [ref=e864]:
+                          - generic [ref=e866]:
+                            - generic [ref=e868]: Marketing
+                            - generic "Number of workflows in this folder" [ref=e869]: (8)
+                          - button "Click to see options." [ref=e872]:
+                            - img "Options" [ref=e873]
+                      - group [ref=e874]:
+                        - treeitem "ConvoFlow Number of workflows in this folder Click to see options." [ref=e878]:
+                          - generic [ref=e883] [cursor=pointer]:
+                            - generic [ref=e885]:
+                              - generic [ref=e887]: ConvoFlow
+                              - generic "Number of workflows in this folder" [ref=e888]: (1)
+                            - button "Click to see options." [ref=e891]:
+                              - img "Options" [ref=e892]
+                    - treeitem "Rohit Number of workflows in this folder Click to see options." [ref=e894]:
+                      - generic [ref=e899] [cursor=pointer]:
+                        - generic [ref=e901]:
+                          - generic [ref=e903]: Rohit
+                          - generic "Number of workflows in this folder" [ref=e904]: (2)
+                        - button "Click to see options." [ref=e907]:
+                          - img "Options" [ref=e908]
+                    - treeitem "Website Number of workflows in this folder Click to see options." [ref=e910]:
+                      - generic [ref=e911] [cursor=pointer]:
+                        - img [ref=e913]
+                        - generic [ref=e918]:
+                          - generic [ref=e920]:
+                            - generic [ref=e922]: Website
+                            - generic "Number of workflows in this folder" [ref=e923]: (0)
+                          - button "Click to see options." [ref=e926]:
+                            - img "Options" [ref=e927]
+              - tree "Trash Folder" [ref=e230]:
+                - separator [ref=e928]
+                - treeitem "Trash Number of workflows in this folder" [ref=e930]:
+                  - generic [ref=e937] [cursor=pointer]:
+                    - generic [ref=e939]: Trash
+                    - generic "Number of workflows in this folder" [ref=e940]: (5)
+          - generic [ref=e276]:
+            - generic [ref=e277]:
+              - generic [ref=e280]:
+                - img [ref=e282]
+                - textbox "Search by workflow name..." [ref=e284]
+                - group
+              - button "Filter workflows based on workflow status and folder." [ref=e477] [cursor=pointer]:
+                - img [ref=e287]
+                - text: Filters
+            - region "scrollable content" [ref=e294]:
+              - table [ref=e296]:
+                - rowgroup [ref=e297]:
+                  - row "Select All Rows View workflows status and date of creation. sorted ascending Apps which are integrated in the workflow. Name of workflow and folder where it is located. Task consumed by workflow in the last 30 days." [ref=e298]:
+                    - columnheader "Select All Rows" [ref=e299]:
+                      - generic "Select All Rows" [ref=e300] [cursor=pointer]:
+                        - checkbox "Select all rows" [ref=e301]
+                        - img [ref=e302]
+                    - columnheader "View workflows status and date of creation. sorted ascending" [ref=e304]:
+                      - button "View workflows status and date of creation. sorted ascending" [ref=e306] [cursor=pointer]:
+                        - generic "View workflows status and date of creation." [ref=e307]: Status/Date
+                        - generic [ref=e308]: sorted ascending
+                        - img [ref=e309]
+                    - columnheader "Apps which are integrated in the workflow." [ref=e311]:
+                      - generic [ref=e313]: Application
+                    - columnheader "Name of workflow and folder where it is located." [ref=e314]:
+                      - generic [ref=e316]: Workflow Name
+                    - columnheader "Task consumed by workflow in the last 30 days." [ref=e317]:
+                      - generic [ref=e319]: Task Consumption
+                    - columnheader [ref=e320]:
+                      - generic:
+                        - button
+                - rowgroup [ref=e944]:
+                  - 'row "Select Row Workflow is active. Workflow Created: Apr 03, 2026 00:45:49, (UTC +05:30) Asia/Kolkata Integrated applications Convoflow - Call Analyzed ConvoFlow Number of tasks consumed in the last 30 days. Pabbly only counts tasks from external software actions. Trigger and internal steps are not counted. Pabbly Connect does not charge tasks for triggers and internal application steps. You''re saving 50% on task usage by using Pabbly Connect. Click to see options." [ref=e945] [cursor=pointer]':
+                    - cell "Select Row" [ref=e946]:
+                      - generic "Select Row" [ref=e947]:
+                        - checkbox "Row checkbox" [ref=e948]
+                        - img [ref=e949]
+                    - 'cell "Workflow is active. Workflow Created: Apr 03, 2026 00:45:49, (UTC +05:30) Asia/Kolkata" [ref=e951]':
+                      - generic [ref=e953]:
+                        - generic "Workflow is active." [ref=e955]: Active
+                        - generic [ref=e956]: Apr 03, 2026 00:45:49
+                    - cell "Integrated applications" [ref=e957]:
+                      - generic "Integrated applications" [ref=e959]:
+                        - img "app2" [ref=e961]
+                        - img "app1" [ref=e963]
+                    - cell "Convoflow - Call Analyzed ConvoFlow" [ref=e964]:
+                      - generic [ref=e966]:
+                        - generic [ref=e967]: Convoflow - Call Analyzed
+                        - generic [ref=e968]: ConvoFlow
+                    - cell "Number of tasks consumed in the last 30 days. Pabbly only counts tasks from external software actions. Trigger and internal steps are not counted. Pabbly Connect does not charge tasks for triggers and internal application steps. You're saving 50% on task usage by using Pabbly Connect." [ref=e969]:
+                      - generic [ref=e971]:
+                        - generic "Number of tasks consumed in the last 30 days. Pabbly only counts tasks from external software actions. Trigger and internal steps are not counted." [ref=e973]: 0 Tasks Consumed
+                        - generic "Pabbly Connect does not charge tasks for triggers and internal application steps. You're saving 50% on task usage by using Pabbly Connect." [ref=e975]: 26 Free Tasks Consumed
+                    - cell "Click to see options." [ref=e976]:
+                      - generic "Click to see options." [ref=e977]:
+                        - button [ref=e979]:
+                          - img [ref=e980]
+                  - row [ref=e984]:
+                    - cell [ref=e985]
+            - generic [ref=e328]:
+              - generic [ref=e330]:
+                - paragraph [ref=e331]: "Rows per page:"
+                - generic [ref=e332]:
+                  - combobox "Select the number of rows displayed per page. 10" [ref=e333] [cursor=pointer]: "10"
+                  - textbox: "10"
+                  - img
+                - paragraph [ref=e334]:
+                  - generic [ref=e335]:
+                    - generic "Shows the current range of rows being displayed and the total number of rows." [ref=e336]: 1–1 of 1
+                    - generic [ref=e337]:
+                      - generic [ref=e338]: "Page:"
+                      - generic "Only one page available." [ref=e339]:
+                        - textbox "1" [disabled] [ref=e340]
+                      - generic [ref=e341]: of 1
+                - generic [ref=e342]:
+                  - button "Go to previous page" [disabled]:
+                    - img
+                  - button "Go to next page" [disabled]:
+                    - img
+              - generic "Switch to reduce the table size." [ref=e343] [cursor=pointer]:
+                - checkbox "Switch to reduce the table size." [ref=e346]
+                - generic [ref=e349]: Dense
+    - banner [ref=e350]:
+      - generic [ref=e351]: Pabbly © 2026. All Rights Reserved.

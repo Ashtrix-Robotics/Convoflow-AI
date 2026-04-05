@@ -1,0 +1,93 @@
+# ========================
+# Python / Backend
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.log
+
+# ========================
+# Node.js / Frontend / Mobile
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn/
+.pnp.*
+.next/
+out/
+.cache/
+
+# ========================
+# Expo / React Native
+# ========================
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+android/
+ios/
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ========================
+# Media / Uploads
+# ========================
+uploads/
+recordings/
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.ogg
+
+# ========================
+# Secrets / Keys
+# ========================
+secrets/
+*.pem
+*.pfx
+*.cert
+aws/ec2-info.txt
+
+# ========================
+# Misc
+# ========================
+*.pptx
+*.xlsx
+*.docx
+create_complex_ppt.py
+simple_presentation.pptx
+Comprehensive_Sales_Presentation.pptx
+.vercel

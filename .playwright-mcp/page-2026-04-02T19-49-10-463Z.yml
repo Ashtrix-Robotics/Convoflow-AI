@@ -1,0 +1,145 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e5]:
+      - text: 👉 Get 15% OFF, Exclusive Bonuses, & a full year of access with our Annual Plan!
+      - button "REDEEM NOW" [ref=e6] [cursor=pointer]:
+        - link "REDEEM NOW" [ref=e7]:
+          - /url: https://www.pabbly.com/connect/#pricing
+  - navigation [ref=e8]:
+    - generic [ref=e9]:
+      - text: 
+      - link "Logo" [ref=e10] [cursor=pointer]:
+        - /url: https://connect.pabbly.com/
+        - img "Logo" [ref=e11]
+    - generic [ref=e15]:
+      - button "Workflow" [ref=e17] [cursor=pointer]
+      - generic [ref=e18]:
+        - combobox [ref=e19]:
+          - option "Search Workflow by Name or Webhook URL" [disabled]
+          - option "Convoflow - Call Analyzed" [selected]
+          - option "Summer Camp Leads Meta to GSheet"
+          - option "Sgpr Leads Meta to GSheet"
+          - option "ASR Manual Blog Publisher"
+          - option "ASR Blog Auto Poster – Ashtrix.in"
+          - option "ARRC website Contact Form"
+          - option "UAE Demo Lead Response"
+          - option "ASR Direct Conv Leads Meta to GSheet_Carousel"
+          - option "ARRC Blog automation"
+          - option "UAE Leads Meta to GSheet"
+          - option "IKCC 2026 Bulk Email"
+          - option "Reminder"
+          - option "ASR Whatsapp funnel follow up (Direct Sales)"
+          - option "ASR Direct Conv Leads Meta to GSheet"
+          - option "Razorpay Link based Fee Sheet status update"
+          - option "Fee Reminder Automation -Razorpay Integration"
+          - option "Fee Reminder Automation"
+          - option "IIT Madras Workshop Leads Meta to GSheet"
+        - combobox [ref=e20] [cursor=pointer]:
+          - generic [ref=e23]: Convoflow - Call Analyzed
+    - generic [ref=e25]:
+      - text: 
+      - button "Upgrade" [ref=e28] [cursor=pointer]:
+        - link "Upgrade" [ref=e29]:
+          - /url: https://www.pabbly.com/connect/#pricing
+      - generic [ref=e32] [cursor=pointer]: 
+      - text: 
+      - generic [ref=e34]:
+        - img "Profile Picture" [ref=e35] [cursor=pointer]
+        - text:   
+  - text:    
+  - generic [ref=e37]:
+    - list [ref=e40]:
+      - listitem [ref=e41] [cursor=pointer]:
+        - link " Dashboard" [ref=e42]:
+          - /url: https://connect.pabbly.com/dashboard?filter_status=applied&filter_by_folder_id=IjU3NjUwNTZjMDYzMzA0MzU1MjZmNTUzMyI_3D_pc
+          - generic [ref=e43]: 
+          - generic [ref=e44]: Dashboard
+      - listitem [ref=e45] [cursor=pointer]:
+        - link "Logo Workflows" [ref=e46]:
+          - /url: https://connect.pabbly.com/workflow/mapping/IjU3NjcwNTZmMDYzMTA0MzE1MjZlNTUzNjUxMzQi_pc
+          - img "Logo" [ref=e47]
+          - generic [ref=e48]: Workflows
+      - listitem [ref=e49] [cursor=pointer]:
+        - link " History" [ref=e50]:
+          - /url: https://connect.pabbly.com/task/history?filter_status=applied&filter_by_workflow_id=IjU3NjcwNTZmMDYzMTA0MzE1MjZlNTUzNjUxMzQi_pc
+          - generic [ref=e51]: 
+          - generic [ref=e52]: History
+      - listitem [ref=e53] [cursor=pointer]:
+        - link " Settings" [ref=e54]:
+          - /url: https://connect.pabbly.com/v2/app/setting
+          - generic [ref=e55]: 
+          - generic [ref=e56]: Settings
+      - listitem [ref=e57] [cursor=pointer]:
+        - link " Get Help" [ref=e58]:
+          - /url: https://connect.pabbly.com/v2/app/gethelp
+          - generic [ref=e59]: 
+          - generic [ref=e60]: Get Help
+    - generic [ref=e61]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - heading "Convoflow - Call Analyzed" [level=2] [ref=e68]
+          - generic [ref=e70] [cursor=pointer]: 
+        - generic [ref=e72]:
+          - text: 
+          - button "" [ref=e73] [cursor=pointer]:
+            - generic [ref=e74]: 
+          - generic [ref=e77] [cursor=pointer]:
+            - generic: ON OFF
+      - tabpanel [ref=e83]:
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89] [cursor=pointer]:
+                - generic [ref=e90]:
+                  - generic [ref=e91]:
+                    - img "App Logo" [ref=e94]
+                    - generic [ref=e95]:
+                      - text: "Trigger : When this happens …"
+                      - 'heading "1. Webhook by Pabbly : Catch Webhook (Preferred)" [level=3] [ref=e96]'
+                  - generic [ref=e97]:
+                    - generic [ref=e98]:
+                      - generic [ref=e99]: 
+                      - text: Help
+                    - generic [ref=e101]:
+                      - generic [ref=e102]: 
+                      - text: Instant
+                    - text: Free Task
+                    - generic [ref=e104]: 
+                    - generic [ref=e105]: 
+                - text:  
+              - text:  
+            - generic [ref=e172]:
+              - button "" [ref=e174] [cursor=pointer]:
+                - generic [ref=e175]: 
+              - generic [ref=e178] [cursor=pointer]: 
+          - generic [ref=e4358]:
+            - generic [ref=e4360] [cursor=pointer]:
+              - generic [ref=e4361]:
+                - img "App Logo" [ref=e4364]
+                - generic [ref=e4365]:
+                  - text: "Action : Do this …"
+                  - heading "Router (Pabbly) :" [level=3] [ref=e4366]: "Router (Pabbly) :"
+              - generic [ref=e4367]:
+                - text: Free Task
+                - generic [ref=e4369]: 
+                - generic [ref=e4370]: 
+            - generic [ref=e4371]:
+              - generic [ref=e4372]:
+                - generic [ref=e4373]:
+                  - generic [ref=e4374]: Choose App
+                  - generic [ref=e4375] [cursor=pointer]:
+                    - img "app_img" [ref=e4376]
+                    - generic [ref=e4377]: Router (Pabbly)
+                - generic [ref=e4378]:
+                  - generic [ref=e4379]: Action Event
+                  - generic [ref=e4380]:
+                    - combobox "Search & select" [ref=e4381]:
+                      - option
+                      - option "Search & select" [disabled] [selected]
+                      - option "Conditionally Run"
+                    - combobox "Search & select" [ref=e4382] [cursor=pointer]:
+                      - generic [ref=e4385]: Search & select
+              - text:  
+    - paragraph [ref=e199]: Pabbly © 2026 All Rights Reserved.
+    - generic:     
+    - generic:     

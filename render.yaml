@@ -1,0 +1,69 @@
+services:
+  - type: web
+    name: convoflow-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free # Free tier: 512MB RAM, spins down after 15min idle
+    region: singapore # Closest to India
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        sync: false # Set manually in Render dashboard (never commit secrets)
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: GROQ_WHISPER_MODEL
+        value: whisper-large-v3-turbo
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com/v1
+      - key: DEEPSEEK_CHAT_MODEL
+        value: deepseek-chat
+      - key: AI_GATEWAY_API_KEY
+        sync: false
+      - key: AI_GATEWAY_BASE_URL
+        value: https://ai-gateway.vercel.sh/v1
+      - key: AI_GATEWAY_WHISPER_MODEL
+        value: whisper-1
+      - key: AI_GATEWAY_CHAT_MODEL
+        value: gpt-4o-mini
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: recordings
+      - key: PABBLY_WEBHOOK_URL
+        sync: false
+      - key: PABBLY_SECRET_KEY
+        sync: false
+      # Production: use Supabase PostgreSQL pooler URL
+      # Go to Supabase > Settings > Database > Connection Pooling > copy URI
+      - key: DATABASE_URL
+        sync: false
+      - key: UPLOAD_DIR
+        value: /tmp/uploads # Ephemeral storage for Render free tier
+      - key: MAX_AUDIO_SIZE_MB
+        value: "100"
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ALLOWED_ORIGINS
+        sync: false # e.g. https://convoflow-web.vercel.app,https://web-ashtrix.vercel.app
+      # AiSensy WhatsApp integration
+      - key: API_CAMPAIGN_KEY
+        sync: false
+      - key: AISENSY_PROJECT_ID
+        sync: false
+      - key: AISENSY_PROJECT_API_PWD
+        sync: false
+      - key: AISENSY_SEND_ENABLED
+        value: "true"

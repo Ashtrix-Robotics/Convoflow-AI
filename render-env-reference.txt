@@ -1,0 +1,57 @@
+# ============================================================
+# Render.com — Convoflow API Environment Variables
+# Workspace: Ashtrix
+# Service: convoflow-api  →  https://convoflow-api.onrender.com
+# ============================================================
+# DEPLOYMENT STEPS:
+#   1. Push this repo to GitHub (if not already pushed)
+#   2. Render Dashboard → New → Blueprint → connect this repo
+#      (Render auto-detects render.yaml and creates the service)
+#   3. Go to the service → Environment → add all FILL_IN vars below
+#   4. Run migrations once: in Render → Shell → alembic upgrade head
+#   5. Trigger a manual deploy
+# ============================================================
+
+# ── Secrets (FILL_IN in Render Dashboard → Environment) ──────
+# Generate a strong key: python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=<FILL_IN: generate new strong key — never reuse the dev key>
+
+# ── AI Keys ──────────────────────────────────────────────────
+GROQ_API_KEY=<FILL_IN: copy from backend/.env>
+AI_GATEWAY_API_KEY=<FILL_IN: copy from backend/.env>
+DEEPSEEK_API_KEY=<FILL_IN: optional — leave empty to use AI Gateway fallback>
+
+# ── Supabase ─────────────────────────────────────────────────
+SUPABASE_URL=<FILL_IN: copy from backend/.env>
+SUPABASE_SERVICE_KEY=<FILL_IN: copy from backend/.env>
+SUPABASE_ANON_KEY=<FILL_IN: copy from backend/.env>
+
+# DATABASE — Supabase PostgreSQL (Transaction Pooler, recommended for Render):
+#   Supabase → Settings → Database → Connection Pooling → Transaction mode → copy URI
+DATABASE_URL=<FILL_IN: postgresql://postgres.dwswmirwfsqkerybszsg:[DB_PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres>
+
+# ── Automation ───────────────────────────────────────────────
+PABBLY_WEBHOOK_URL=<FILL_IN: copy from backend/.env>
+PABBLY_SECRET_KEY=<FILL_IN: copy from backend/.env>
+
+# ── AiSensy WhatsApp ─────────────────────────────────────────
+API_CAMPAIGN_KEY=<FILL_IN: copy from backend/.env>
+AISENSY_PROJECT_ID=<FILL_IN: copy from backend/.env — leave blank if not set>
+AISENSY_PROJECT_API_PWD=<FILL_IN: copy from backend/.env — leave blank if not set>
+AISENSY_FIRST_CAMPAIGN_NAME=<FILL_IN: copy from backend/.env — leave blank if not set>
+
+# ── CORS ─────────────────────────────────────────────────────
+# Include all frontend origins that call this API (no trailing slash):
+ALLOWED_ORIGINS=https://convoflow-web.vercel.app,https://web-ashtrix.vercel.app
+
+# ── Auto-set by render.yaml — do NOT add these again ─────────
+# ENVIRONMENT=production       DEBUG=false
+# UPLOAD_DIR=/tmp/uploads      MAX_AUDIO_SIZE_MB=100
+# JWT_ALGORITHM=HS256          SUPABASE_BUCKET=recordings
+# GROQ_BASE_URL, GROQ_WHISPER_MODEL
+# DEEPSEEK_BASE_URL, DEEPSEEK_CHAT_MODEL
+# AI_GATEWAY_BASE_URL, AI_GATEWAY_WHISPER_MODEL, AI_GATEWAY_CHAT_MODEL
+# AISENSY_SEND_ENABLED=true
+
+# ── Local tooling — do NOT add to Render ─────────────────────
+# RENDER_API_KEY is for VS Code Copilot MCP only — never add to Render env vars

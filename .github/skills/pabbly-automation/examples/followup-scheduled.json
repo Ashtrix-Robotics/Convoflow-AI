@@ -1,0 +1,11 @@
+{
+  "event": "followup.scheduled",
+  "timestamp": "2025-06-15T15:00:00Z",
+  "followup_id": "fu-uuid-8a2e-4f9b-c715-abcdef012345",
+  "call_id": "550e8400-e29b-41d4-a716-446655440001",
+  "agent_id": "agent-uuid-9f3c-4d82-b0e1-12345678abcd",
+  "client_name": "Acme Corp",
+  "client_id": "client-uuid-1234",
+  "due_date": "2025-06-23T09:00:00",
+  "notes": "Call back to confirm receipt of enterprise pricing PDF and check CFO approval status. Offer to answer any technical questions before the demo on Wednesday."
+}

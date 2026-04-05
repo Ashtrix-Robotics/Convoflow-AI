@@ -1,0 +1,23 @@
+{
+  "event": "transcription.completed",
+  "timestamp": "2025-06-15T14:30:00Z",
+  "call_id": "550e8400-e29b-41d4-a716-446655440001",
+  "agent_id": "agent-uuid-9f3c-4d82-b0e1-12345678abcd",
+  "client_name": "Acme Corp",
+  "client_id": "client-uuid-1234",
+  "summary": "Agent Jane discussed the Q3 pricing proposal with the procurement lead at Acme Corp. The client expressed interest in the enterprise plan but requested a 30-day pilot period before committing to an annual contract. Budget approval is pending CFO sign-off next Tuesday.",
+  "action_items": [
+    "Send updated enterprise pricing PDF with volume discount by Friday EOD",
+    "Schedule technical demo with Acme's IT team next Wednesday at 2pm",
+    "Follow up with CFO approval status the following Monday"
+  ],
+  "sentiment": "positive",
+  "next_step": "Send updated enterprise pricing PDF with volume discount by Friday EOD",
+  "key_topics": [
+    "enterprise pricing",
+    "pilot period",
+    "CFO approval",
+    "annual contract"
+  ],
+  "duration_seconds": 1847
+}

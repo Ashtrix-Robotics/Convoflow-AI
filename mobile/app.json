@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Convoflow AI",
+    "slug": "convoflow-ai",
+    "version": "1.0.0",
+    "sdkVersion": "55.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#002147"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.convoflow.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Convoflow AI needs microphone access to record client conversations.",
+        "NSSpeechRecognitionUsageDescription": "Convoflow AI uses speech recognition to transcribe conversations."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#002147"
+      },
+      "package": "com.convoflow.app",
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_PHONE_STATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MICROPHONE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Convoflow AI needs microphone access to record client conversations.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": true
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "scheme": "convoflow",
+    "extra": {
+      "eas": {
+        "projectId": "convoflow-ai"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/convoflow-ai"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}

@@ -267,6 +267,10 @@ class AnalyticsOverview(BaseModel):
     leads_by_status: dict[str, int]
     leads_by_intent: dict[str, int]
     leads_by_campaign: dict[str, int]
+    # Array versions of the dicts above — pre-shaped for chart consumption
+    campaign_breakdown: list[dict] = []   # [{campaign, leads, converted}, ...]
+    intent_distribution: list[dict] = []  # [{intent, count}, ...]
+    daily_stats: list[dict] = []          # [{date, new_leads, calls_made, conversions}, ...]
     total_calls_today: int
     total_conversions: int
     conversion_rate: float

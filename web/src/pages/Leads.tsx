@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import NavBar from "../components/NavBar";
 import api from "../services/api";
 
 const PIPELINE_COLUMNS = [
@@ -58,28 +59,7 @@ export default function Leads() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#002147] text-white px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold">Convoflow AI</h1>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/" className="hover:text-orange-300 opacity-70">
-              Dashboard
-            </Link>
-            <Link to="/leads" className="text-orange-400 font-semibold">
-              Leads
-            </Link>
-          </nav>
-        </div>
-        <button
-          className="text-sm bg-[#FF6600] px-4 py-2 rounded hover:bg-orange-600"
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
-        >
-          Sign Out
-        </button>
-      </header>
+      <NavBar active="leads" />
 
       <main className="px-4 py-6">
         {/* Toolbar */}

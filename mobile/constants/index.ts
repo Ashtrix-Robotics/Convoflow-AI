@@ -56,6 +56,9 @@ export const AUDIO_EXTENSION = ".m4a";
 /** Maximum recording duration in seconds (5 minutes) */
 export const MAX_RECORDING_DURATION_SECONDS = 300;
 
+/** Timeout for audio file upload requests (ms) */
+export const UPLOAD_TIMEOUT_MS = 60_000;
+
 // ─── Intent Categories ───────────────────────────────────────────────────────
 // Mirror of schemas.IntentCategory on the backend — keep in sync.
 

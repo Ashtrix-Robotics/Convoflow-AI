@@ -1,11 +1,23 @@
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     environment: str = "development"
     secret_key: str = "change-this-in-production"
-    debug: bool = True
+    debug: bool = False
+
+    @model_validator(mode="after")
+    def _check_secret_key(self) -> "Settings":
+        if (
+            self.environment == "production"
+            and self.secret_key == "change-this-in-production"
+        ):
+            raise ValueError(
+                "SECRET_KEY must be set to a random value in production. "
+                "Run: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return self
 
     # ---------------------------------------------------------------------------
     # AI — Transcription (Groq Whisper) + LLM (DeepSeek V3)

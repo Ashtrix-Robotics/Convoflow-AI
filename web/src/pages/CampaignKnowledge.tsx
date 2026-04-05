@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import NavBar from "../components/NavBar";
 import api from "../services/api";
 
 interface TemplateParam {
@@ -205,7 +206,6 @@ const STARTER_TEMPLATES: Array<{
 ];
 
 export default function CampaignKnowledge() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Campaign | typeof EMPTY | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -272,34 +272,7 @@ export default function CampaignKnowledge() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#002147] text-white px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold">Convoflow AI</h1>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/" className="hover:text-orange-300 opacity-70">
-              Dashboard
-            </Link>
-            <Link to="/leads" className="hover:text-orange-300 opacity-70">
-              Leads
-            </Link>
-            <Link
-              to="/admin/settings"
-              className="text-orange-400 font-semibold"
-            >
-              Admin
-            </Link>
-          </nav>
-        </div>
-        <button
-          className="text-sm bg-[#FF6600] px-4 py-2 rounded hover:bg-orange-600"
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
-        >
-          Sign Out
-        </button>
-      </header>
+      <NavBar active="admin" />
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">

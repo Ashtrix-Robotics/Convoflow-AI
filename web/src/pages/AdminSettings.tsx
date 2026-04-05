@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import NavBar from "../components/NavBar";
 import api from "../services/api";
 
 const SETTING_LABELS: Record<
@@ -32,7 +33,6 @@ interface Setting {
 }
 
 export default function AdminSettings() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const { data: settings = [], isLoading } = useQuery<Setting[]>({
@@ -46,8 +46,8 @@ export default function AdminSettings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "settings"] }),
   });
 
-  const [testPhone, setTestPhone] = useState("9502718666");
-  const [testName, setTestName] = useState("Sreenath");
+  const [testPhone, setTestPhone] = useState("");
+  const [testName, setTestName] = useState("");
   const [testCampaign, setTestCampaign] = useState("");
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -96,35 +96,7 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#002147] text-white px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold">Convoflow AI</h1>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/" className="hover:text-orange-300 opacity-70">
-              Dashboard
-            </Link>
-            <Link to="/leads" className="hover:text-orange-300 opacity-70">
-              Leads
-            </Link>
-            <Link
-              to="/admin/settings"
-              className="text-orange-400 font-semibold"
-            >
-              Admin
-            </Link>
-          </nav>
-        </div>
-        <button
-          className="text-sm bg-[#FF6600] px-4 py-2 rounded hover:bg-orange-600"
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
-        >
-          Sign Out
-        </button>
-      </header>
+      <NavBar active="admin" />
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         <div>

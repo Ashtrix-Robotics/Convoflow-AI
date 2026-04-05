@@ -2,7 +2,12 @@ import axios from "axios";
 import { FileSystemUploadType, uploadAsync } from "expo-file-system/legacy";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { API_BASE_URL, TOKEN_KEY, CALLS_PAGE_SIZE } from "../constants";
+import {
+  API_BASE_URL,
+  TOKEN_KEY,
+  CALLS_PAGE_SIZE,
+  UPLOAD_TIMEOUT_MS,
+} from "../constants";
 
 const api = axios.create({ baseURL: API_BASE_URL });
 
@@ -158,7 +163,7 @@ export const uploadCall = async (
     if (callOutcome) formData.append("call_tag", callOutcome);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
     try {
       const fallbackResponse = await fetch(`${API_BASE_URL}/calls/upload`, {

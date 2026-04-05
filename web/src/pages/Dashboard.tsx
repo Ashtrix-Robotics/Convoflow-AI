@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import NavBar from "../components/NavBar";
 import {
   BarChart,
   Bar,
@@ -29,16 +30,40 @@ const PIE_COLORS = [
 ];
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const { data: calls = [], isLoading: callsLoading } = useQuery({
     queryKey: ["calls"],
     queryFn: () => api.get("/calls").then((r) => r.data),
   });
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: rawAnalytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["analytics"],
     queryFn: () => api.get("/analytics/overview").then((r) => r.data),
   });
+
+  /**
+   * Normalize analytics data — handles both backend shapes:
+   *  - New: `campaign_breakdown: [{campaign, leads, converted}]` (array)
+   *  - Legacy: `leads_by_campaign: {name: count}` (dict)
+   * Same pattern applied to intent_distribution and daily_stats.
+   */
+  const analytics = rawAnalytics
+    ? {
+        ...rawAnalytics,
+        campaign_breakdown:
+          rawAnalytics.campaign_breakdown?.length > 0
+            ? rawAnalytics.campaign_breakdown
+            : Object.entries(rawAnalytics.leads_by_campaign ?? {}).map(
+                ([campaign, leads]) => ({ campaign, leads, converted: 0 }),
+              ),
+        intent_distribution:
+          rawAnalytics.intent_distribution?.length > 0
+            ? rawAnalytics.intent_distribution
+            : Object.entries(rawAnalytics.leads_by_intent ?? {})
+                .filter(([intent]) => intent && intent !== "null")
+                .map(([intent, count]) => ({ intent, count })),
+        daily_stats: rawAnalytics.daily_stats ?? [],
+      }
+    : undefined;
 
   const statusColor: Record<string, string> = {
     completed: "bg-green-100 text-green-700",
@@ -49,35 +74,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#002147] text-white px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold">Convoflow AI</h1>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/" className="text-orange-400 font-semibold">
-              Dashboard
-            </Link>
-            <Link to="/leads" className="hover:text-orange-300 opacity-70">
-              Leads
-            </Link>
-            <Link
-              to="/admin/settings"
-              className="hover:text-orange-300 opacity-70"
-            >
-              Admin
-            </Link>
-          </nav>
-        </div>
-        <button
-          className="text-sm bg-[#FF6600] px-4 py-2 rounded hover:bg-orange-600"
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
-        >
-          Sign Out
-        </button>
-      </header>
+      <NavBar active="dashboard" />
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         {/* KPI cards */}
@@ -88,7 +85,7 @@ export default function Dashboard() {
                 Total Leads
               </p>
               <p className="text-3xl font-bold text-gray-800 mt-1">
-                {analytics.lead_count}
+                {analytics.total_leads}
               </p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5">
@@ -96,7 +93,7 @@ export default function Dashboard() {
                 Contacted
               </p>
               <p className="text-3xl font-bold text-blue-600 mt-1">
-                {analytics.contacted_count}
+                {analytics.leads_by_status?.contacted ?? 0}
               </p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5">
@@ -104,7 +101,7 @@ export default function Dashboard() {
                 Converted
               </p>
               <p className="text-3xl font-bold text-green-600 mt-1">
-                {analytics.converted_count}
+                {analytics.total_conversions}
               </p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5">
@@ -112,7 +109,7 @@ export default function Dashboard() {
                 Conversion Rate
               </p>
               <p className="text-3xl font-bold text-[#FF6600] mt-1">
-                {(analytics.conversion_rate * 100).toFixed(1)}%
+                {analytics.conversion_rate.toFixed(1)}%
               </p>
             </div>
           </div>
@@ -228,7 +225,7 @@ export default function Dashboard() {
         )}
 
         {/* Agent performance */}
-        {analytics?.agent_performance?.length > 0 && (
+        {analytics?.agent_stats?.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-5">
             <h3 className="font-semibold text-gray-700 mb-4">
               Agent Performance
@@ -244,22 +241,16 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {analytics.agent_performance.map((a: any) => (
+                {analytics.agent_stats.map((a: any) => (
                   <tr key={a.agent_name}>
                     <td className="py-2 font-medium text-gray-700">
                       {a.agent_name}
                     </td>
                     <td className="py-2 text-gray-500">{a.leads_assigned}</td>
                     <td className="py-2 text-gray-500">{a.calls_made}</td>
-                    <td className="py-2 text-green-600">{a.leads_converted}</td>
+                    <td className="py-2 text-green-600">{a.conversions}</td>
                     <td className="py-2 text-[#FF6600] font-semibold">
-                      {a.leads_assigned > 0
-                        ? (
-                            (a.leads_converted / a.leads_assigned) *
-                            100
-                          ).toFixed(0)
-                        : 0}
-                      %
+                      {a.conversion_rate.toFixed(0)}%
                     </td>
                   </tr>
                 ))}

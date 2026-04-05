@@ -51,6 +51,58 @@ def get_overview(
     )
     leads_by_campaign = {c or "Unknown": cnt for c, cnt in campaign_rows}
 
+    # Array shapes for charts
+    campaign_breakdown = [
+        {
+            "campaign": campaign,
+            "leads": cnt,
+            "converted": (
+                db.query(func.count(Lead.id))
+                .filter(Lead.source_campaign == campaign, Lead.status == "converted")
+                .scalar() or 0
+            ),
+        }
+        for campaign, cnt in leads_by_campaign.items()
+    ]
+
+    intent_distribution = [
+        {"intent": intent, "count": cnt}
+        for intent, cnt in leads_by_intent.items()
+        if intent
+    ]
+
+    # Daily stats — last 30 days
+    thirty_days_ago = today - timedelta(days=29)
+    daily_stats: list[dict] = []
+    for offset in range(30):
+        day_start = thirty_days_ago + timedelta(days=offset)
+        day_end = day_start + timedelta(days=1)
+        new_leads = (
+            db.query(func.count(Lead.id))
+            .filter(Lead.created_at >= day_start, Lead.created_at < day_end)
+            .scalar() or 0
+        )
+        calls_made = (
+            db.query(func.count(CallRecord.id))
+            .filter(CallRecord.created_at >= day_start, CallRecord.created_at < day_end)
+            .scalar() or 0
+        )
+        conversions = (
+            db.query(func.count(Lead.id))
+            .filter(
+                Lead.created_at >= day_start,
+                Lead.created_at < day_end,
+                Lead.status == "converted",
+            )
+            .scalar() or 0
+        )
+        daily_stats.append({
+            "date": day_start.strftime("%b %d"),
+            "new_leads": new_leads,
+            "calls_made": calls_made,
+            "conversions": conversions,
+        })
+
     # Today's calls
     total_calls_today = (
         db.query(func.count(CallRecord.id))
@@ -101,6 +153,9 @@ def get_overview(
         leads_by_status=leads_by_status,
         leads_by_intent=leads_by_intent,
         leads_by_campaign=leads_by_campaign,
+        campaign_breakdown=campaign_breakdown,
+        intent_distribution=intent_distribution,
+        daily_stats=daily_stats,
         total_calls_today=total_calls_today,
         total_conversions=total_conversions,
         conversion_rate=round(conversion_rate, 1),

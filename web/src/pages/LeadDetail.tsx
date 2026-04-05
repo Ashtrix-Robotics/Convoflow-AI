@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import NavBar from "../components/NavBar";
 import api from "../services/api";
 
 const STATUS_OPTIONS = [
@@ -72,15 +73,10 @@ export default function LeadDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#002147] text-white px-6 py-4 flex items-center gap-4">
-        <button
-          onClick={() => navigate("/leads")}
-          className="text-white hover:text-orange-300"
-        >
-          ← Leads
-        </button>
-        <h1 className="text-xl font-bold">Lead Detail</h1>
-      </header>
+      <NavBar
+        active="leads"
+        breadcrumb={{ label: "Back to Leads", to: "/leads" }}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Profile card */}

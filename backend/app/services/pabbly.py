@@ -4,6 +4,7 @@ Pabbly Connect webhook service — fires outbound events that trigger automation
 (WhatsApp, email, Google Sheets sync, calendar, etc.)
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -16,6 +17,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Retry configuration: 3 attempts with delays of 1s, 4s, 9s
+_RETRY_DELAYS = (1, 4, 9)
+
 
 # ---------------------------------------------------------------------------
 # Generic event sender
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 async def fire_event(event_type: str, data: dict) -> bool:
     """
     Send an event payload to the Pabbly Connect webhook URL.
+    Retries up to 3 times with exponential backoff on transient failures.
     Returns True if delivery succeeded, False otherwise.
     Never raises — callers should not fail because of webhook issues.
     """
@@ -39,25 +44,37 @@ async def fire_event(event_type: str, data: dict) -> bool:
 
     payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     signature = _sign_payload(payload_json)
+    headers = {
+        "Content-Type": "application/json",
+        "X-Pabbly-Signature": signature,
+        "X-Pabbly-Event": event_type,
+    }
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                settings.pabbly_webhook_url,
-                content=payload_json,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Pabbly-Signature": signature,
-                    "X-Pabbly-Event": event_type,
-                },
+    for attempt, delay in enumerate(_RETRY_DELAYS, start=1):
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    settings.pabbly_webhook_url,
+                    content=payload_json,
+                    headers=headers,
+                )
+                if response.status_code < 400:
+                    return True
+                logger.warning(
+                    "Pabbly webhook %s attempt %d/%d returned %d",
+                    event_type, attempt, len(_RETRY_DELAYS), response.status_code,
+                )
+        except Exception:
+            logger.warning(
+                "Pabbly webhook %s attempt %d/%d encountered a network error",
+                event_type, attempt, len(_RETRY_DELAYS), exc_info=True,
             )
-            success = response.status_code < 400
-            if not success:
-                logger.error("Pabbly webhook %s failed: %d", event_type, response.status_code)
-            return success
-    except Exception:
-        logger.exception("Pabbly webhook %s delivery error", event_type)
-        return False
+
+        if attempt < len(_RETRY_DELAYS):
+            await asyncio.sleep(delay)
+
+    logger.error("Pabbly webhook %s failed after %d attempts", event_type, len(_RETRY_DELAYS))
+    return False
 
 
 # ---------------------------------------------------------------------------

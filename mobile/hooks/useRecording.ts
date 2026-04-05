@@ -17,6 +17,7 @@ import { MicRecordingStrategy } from "../services/recording/MicRecordingStrategy
 import SafeCallDetector from "../services/recording/SafeCallDetector";
 import { uploadCall } from "../services/api";
 import { deleteLocalRecording } from "../services/audio";
+import { MAX_RECORDING_DURATION_SECONDS } from "../constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,9 @@ export function useRecording(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds the latest stopRecording to avoid circular useCallback deps
+  const stopRecordingRef = useRef<(() => Promise<void>) | null>(null);
   const durationRef = useRef(0); // kept in sync with `duration` for async closures
   const uriRef = useRef<string | null>(null);
 
@@ -120,6 +124,10 @@ export function useRecording(
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (autoStopRef.current) {
+      clearTimeout(autoStopRef.current);
+      autoStopRef.current = null;
     }
   }, []);
 
@@ -175,6 +183,10 @@ export function useRecording(
         onRecordingStarted: () => {
           setPhase("recording");
           startTimer();
+          // Auto-stop at the maximum allowed duration
+          autoStopRef.current = setTimeout(() => {
+            stopRecordingRef.current?.();
+          }, MAX_RECORDING_DURATION_SECONDS * 1000);
         },
         onError: (err) => {
           setErrorMessage(err.message);
@@ -202,6 +214,9 @@ export function useRecording(
       onError?.(msg);
     }
   }, [stopTimer, handleUpload, onError]);
+
+  // Keep ref in sync so startRecording's auto-stop timer can call the latest version
+  stopRecordingRef.current = stopRecording;
 
   // ─── Manual mode API ──────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import NavBar from "../components/NavBar";
 import api from "../services/api";
 
 export default function CallDetail() {
@@ -65,15 +66,10 @@ export default function CallDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#002147] text-white px-6 py-4 flex items-center gap-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-white hover:text-orange-300"
-        >
-          ← Back
-        </button>
-        <h1 className="text-xl font-bold">Call Detail</h1>
-      </header>
+      <NavBar
+        active="dashboard"
+        breadcrumb={{ label: "Back", onClick: () => navigate(-1) }}
+      />
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {/* Meta */}

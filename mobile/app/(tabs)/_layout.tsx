@@ -2,12 +2,13 @@ import { Tabs, Redirect } from "expo-router";
 import { Text } from "react-native";
 import { useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
+import { TOKEN_KEY } from "../../constants";
 
 export default function TabsLayout() {
   const [authed, setAuthed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    SecureStore.getItemAsync("access_token").then((token) => {
+    SecureStore.getItemAsync(TOKEN_KEY).then((token) => {
       setAuthed(!!token);
     });
   }, []);

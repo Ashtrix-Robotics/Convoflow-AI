@@ -51,9 +51,21 @@ def db_check():
     import re
     masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"db": "ok", "url": masked}
+        # Check tables
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        # Try a real query on agents
+        try:
+            from app.models.models import Agent
+            from app.core.database import SessionLocal
+            db = SessionLocal()
+            count = db.query(Agent).count()
+            db.close()
+            return {"db": "ok", "url": masked, "tables": tables, "agents_count": count}
+        except Exception as e2:
+            return {"db": "partial", "url": masked, "tables": tables, "agents_error": str(e2)}
     except Exception as e:
         return {"db": "error", "url": masked, "error": str(e), "type": type(e).__name__}

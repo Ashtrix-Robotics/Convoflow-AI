@@ -14,20 +14,27 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=AgentOut, status_code=status.HTTP_201_CREATED)
 def register(agent_in: AgentCreate, db: Session = Depends(get_db)):
-    existing = db.query(Agent).filter(Agent.email == agent_in.email).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+    import traceback
+    try:
+        existing = db.query(Agent).filter(Agent.email == agent_in.email).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+            )
+        agent = Agent(
+            name=agent_in.name,
+            email=agent_in.email,
+            hashed_password=hash_password(agent_in.password),
         )
-    agent = Agent(
-        name=agent_in.name,
-        email=agent_in.email,
-        hashed_password=hash_password(agent_in.password),
-    )
-    db.add(agent)
-    db.commit()
-    db.refresh(agent)
-    return agent
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+        return agent
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-800:]}")
 
 
 @router.post("/login", response_model=TokenOut)

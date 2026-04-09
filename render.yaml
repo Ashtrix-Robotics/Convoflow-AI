@@ -4,6 +4,8 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    branch: main
+    autoDeploy: true
     plan: free # Free tier: 512MB RAM, spins down after 15min idle
     region: singapore # Closest to India
     healthCheckPath: /health

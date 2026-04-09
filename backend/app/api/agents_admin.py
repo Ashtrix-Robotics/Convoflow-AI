@@ -49,13 +49,23 @@ def update_agent(agent_id: str, update_in: AgentUpdateAdmin, db: Session = Depen
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_agent(agent_id: str, db: Session = Depends(get_db)):
-    from app.models.models import Lead
+    from app.models.models import AppSetting, CallRecord, Lead, WhatsAppConversation
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    # Nullify lead assignments so FK constraint doesn't block deletion
+    # Nullify optional FK references
     db.query(Lead).filter(Lead.assigned_agent_id == agent_id).update(
         {"assigned_agent_id": None}, synchronize_session=False
+    )
+    db.query(WhatsAppConversation).filter(
+        WhatsAppConversation.initiated_by_agent_id == agent_id
+    ).update({"initiated_by_agent_id": None}, synchronize_session=False)
+    db.query(AppSetting).filter(AppSetting.updated_by_agent_id == agent_id).update(
+        {"updated_by_agent_id": None}, synchronize_session=False
+    )
+    # CallRecord.agent_id is non-nullable — cascade delete the agent's call records
+    db.query(CallRecord).filter(CallRecord.agent_id == agent_id).delete(
+        synchronize_session=False
     )
     db.delete(agent)
     db.commit()

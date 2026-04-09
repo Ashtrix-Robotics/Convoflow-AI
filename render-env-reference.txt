@@ -2,12 +2,14 @@
 # Render.com — Convoflow API Environment Variables
 # Workspace: Ashtrix
 # Service: convoflow-api  →  https://convoflow-api.onrender.com
+# Deploy Hook: https://api.render.com/deploy/srv-d79547450q8c73fc78p0?key=XmaLT81Svl4
 # ============================================================
 # DEPLOYMENT STEPS:
 #   1. Push this repo to GitHub (if not already pushed)
 #   2. Render Dashboard → New → Blueprint → connect this repo
 #      (Render auto-detects render.yaml and creates the service)
 #   3. Go to the service → Environment → add all FILL_IN vars below
+# NOTE: If auto-deploy ever stops, manually trigger via Deploy Hook above
 #   4. Run migrations once: in Render → Shell → alembic upgrade head
 #   5. Trigger a manual deploy
 # ============================================================

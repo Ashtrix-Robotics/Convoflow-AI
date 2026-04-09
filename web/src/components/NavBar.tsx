@@ -8,7 +8,7 @@
 
 import { Link, useNavigate } from "react-router-dom";
 
-type NavSection = "dashboard" | "leads" | "admin";
+type NavSection = "dashboard" | "leads" | "admin" | "team";
 
 interface NavBarProps {
   /** Which top-level section is currently active — highlights the nav link. */
@@ -23,7 +23,8 @@ interface NavBarProps {
 const NAV_ITEMS: { key: NavSection; label: string; to: string }[] = [
   { key: "dashboard", label: "Dashboard", to: "/" },
   { key: "leads", label: "Leads", to: "/leads" },
-  { key: "admin", label: "Admin", to: "/admin/settings" },
+  { key: "team", label: "Team", to: "/admin/team" },
+  { key: "admin", label: "Settings", to: "/admin/settings" },
 ];
 
 export default function NavBar({ active, breadcrumb }: NavBarProps) {

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api import admin, aisensy, analytics, auth, calls, clients, followups, leads
+from app.api import admin, aisensy, analytics, auth, calls, clients, followups, leads, agents_admin
 
 # Auto-create tables only in development.
 # In production, run: alembic upgrade head
@@ -35,7 +35,7 @@ app.include_router(leads.router)
 app.include_router(aisensy.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
-
+app.include_router(agents_admin.router)
 
 @app.get("/health")
 def health_check():

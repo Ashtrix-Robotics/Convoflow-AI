@@ -55,6 +55,28 @@ export default function LeadDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
   });
 
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => api.get("/agents").then((r) => r.data),
+  });
+
+  const assignAgent = useMutation({
+    mutationFn: (agentId: string) =>
+      api.post(`/leads/${id}/assign`, null, { params: { agent_id: agentId } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
+  });
+
+  
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => api.get("/agents").then(r => r.data),
+  });
+  
+  const assignAgent = useMutation({
+    mutationFn: (agentId: string) => api.post(`/leads/${id}/assign?agent_id=${agentId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
+  });
+
   const markNoAnswer = useMutation({
     mutationFn: () => api.post(`/leads/${id}/no-answer`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
@@ -162,7 +184,52 @@ export default function LeadDetail() {
               <p className="text-sm text-gray-600">{lead.objections}</p>
             </div>
           )}
+          
+          <div className="mt-6 border-t pt-4 flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide">Assigned Agent</p>
+              <p className="font-medium text-gray-700">
+                {agents.find((a: any) => a.id === lead.assigned_agent_id)?.name || "Unassigned"}
+              </p>
+            </div>
+            <select
+                value={lead.assigned_agent_id || ""}
+                onChange={(e) => assignAgent.mutate(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                disabled={assignAgent.isPending}
+              >
+                <option value="" disabled>Assign to...</option>
+                {agents.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+          </div>
         </div>
+
+        
+          <div className="mt-6 border-t pt-4 flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide">Assigned Agent</p>
+              <p className="font-medium text-gray-700">
+                {agents.find((a: any) => a.id === lead.assigned_agent_id)?.name || "Unassigned"}
+              </p>
+            </div>
+            <select
+                value={lead.assigned_agent_id || ""}
+                onChange={(e) => assignAgent.mutate(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                disabled={assignAgent.isPending}
+              >
+                <option value="" disabled>Assign to...</option>
+                {agents.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+          </div>
 
         {/* Quick actions */}
         <div className="flex gap-3 flex-wrap">

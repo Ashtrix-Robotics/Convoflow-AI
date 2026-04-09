@@ -27,8 +27,8 @@ Write-Host "  Convoflow AI — EAS Build" -ForegroundColor Cyan
 Write-Host "  Profile: $Profile" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "This build runs on Expo's cloud servers."
-Write-Host "You'll get a download link when it's done (~10 minutes)."
+Write-Host "This build runs on Expo cloud servers."
+Write-Host "You will get a download link when it is done (~10 minutes)."
 Write-Host ""
 
 if ($Profile -eq "development") {

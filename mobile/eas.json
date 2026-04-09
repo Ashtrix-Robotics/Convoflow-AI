@@ -5,7 +5,6 @@
   },
   "build": {
     "development": {
-      "comment": "Dev build — includes DevMenu, connects to local Metro bundler. Install on your phone for testing with Metro.",
       "developmentClient": true,
       "distribution": "internal",
       "android": {
@@ -19,7 +18,6 @@
       }
     },
     "preview": {
-      "comment": "Internal APK for sales team testing — standalone, hits production API.",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -29,7 +27,6 @@
       }
     },
     "production": {
-      "comment": "Production AAB for Google Play Store submission.",
       "android": {
         "buildType": "app-bundle"
       },

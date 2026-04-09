@@ -66,17 +66,6 @@ export default function LeadDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
   });
 
-  
-  const { data: agents = [] } = useQuery({
-    queryKey: ["agents"],
-    queryFn: () => api.get("/agents").then(r => r.data),
-  });
-  
-  const assignAgent = useMutation({
-    mutationFn: (agentId: string) => api.post(`/leads/${id}/assign?agent_id=${agentId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
-  });
-
   const markNoAnswer = useMutation({
     mutationFn: () => api.post(`/leads/${id}/no-answer`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),

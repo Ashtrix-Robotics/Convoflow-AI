@@ -49,6 +49,17 @@ export default function TeamManagement() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agents"] }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => api.delete(`/agents/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agents"] }),
+  });
+
+  const handleDelete = (agent: any) => {
+    if (window.confirm(`Permanently delete "${agent.name}"? This cannot be undone.`)) {
+      deleteMutation.mutate(agent.id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <NavBar active="team" />
@@ -190,6 +201,14 @@ export default function TeamManagement() {
                           Re-activate
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDelete(agent)}
+                        disabled={deleteMutation.isPending}
+                        className="text-gray-400 hover:text-red-700 text-sm ml-1" 
+                        title="Permanently delete"
+                      >
+                        🗑
+                      </button>
                     </td>
                   </tr>
                 ))}

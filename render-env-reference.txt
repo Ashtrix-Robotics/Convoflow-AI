@@ -57,3 +57,27 @@ ALLOWED_ORIGINS=https://convoflow-web.vercel.app,https://web-ashtrix.vercel.app
 
 # ── Local tooling — do NOT add to Render ─────────────────────
 # RENDER_API_KEY is for VS Code Copilot MCP only — never add to Render env vars
+
+# ═══════════════════════════════════════════════════════════════
+# GOOGLE SHEETS INTEGRATION
+# ═══════════════════════════════════════════════════════════════
+# Run scripts/setup_google_sheets.py ONCE to generate these values:
+#   cd scripts
+#   pip install google-auth google-auth-oauthlib gspread google-api-python-client
+#   python setup_google_sheets.py
+# The script will open a browser for Google sign-in, then output the two values below.
+#
+# After running, add both to Render → Environment:
+#
+GOOGLE_SPREADSHEET_ID=<FILL_IN: output from scripts/setup_google_sheets.py>
+GOOGLE_SERVICE_ACCOUNT_JSON=<FILL_IN: full JSON string — output from scripts/setup_google_sheets.py>
+#
+# Spreadsheet URL: https://docs.google.com/spreadsheets/d/<GOOGLE_SPREADSHEET_ID>/edit
+# After setting env vars: Render → Manual Deploy → then go to Admin > Settings in the web dashboard
+# and click "Bulk Sync All Leads → Sheet" to do the initial sync.
+# ═══════════════════════════════════════════════════════════════
+
+# ── Prod service accounts (for reference) ─────────────────────
+# System Admin:    admin@convoflow.ai
+# Sales Agent 1:   agent1@convoflow.ai
+# Sales Agent 2:   agent2@convoflow.ai

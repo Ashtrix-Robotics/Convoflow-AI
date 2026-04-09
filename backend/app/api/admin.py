@@ -13,9 +13,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_agent
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.models import Agent, AppSetting, CampaignKnowledge, Lead
 from app.services.aisensy import initiate_lead_campaign, sync_lead_whatsapp_state
+from app.services.google_sheets import bulk_sync as sheets_bulk_sync
 from app.services.phone_numbers import normalize_phone_number
 
 logger = logging.getLogger(__name__)
@@ -431,3 +433,40 @@ async def whatsapp_test_send(
         "campaign_used": campaign_name,
         "provider_response": provider_response,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Google Sheets — manual bulk sync
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/sheets/sync", tags=["admin"])
+def sheets_sync(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Bulk-sync all leads into the configured Google Sheet (clears & rewrites).
+    Useful after initial setup or if the sheet gets out of sync.
+    """
+    if not settings.use_google_sheets:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Sheets is not configured (GOOGLE_SERVICE_ACCOUNT_JSON + GOOGLE_SPREADSHEET_ID required)",
+        )
+    leads = db.query(Lead).order_by(Lead.created_at.asc()).all()
+    written = sheets_bulk_sync(leads)
+    return {"rows_written": written, "spreadsheet_id": settings.google_spreadsheet_id}
+
+
+@router.get("/sheets/status", tags=["admin"])
+def sheets_status(agent: Agent = Depends(get_current_agent)):
+    """Returns whether Google Sheets sync is configured and the spreadsheet URL."""
+    configured = settings.use_google_sheets
+    return {
+        "configured": configured,
+        "spreadsheet_url": (
+            f"https://docs.google.com/spreadsheets/d/{settings.google_spreadsheet_id}/edit"
+            if configured else None
+        ),
+    }
+

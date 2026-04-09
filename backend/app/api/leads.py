@@ -18,6 +18,7 @@ from app.models.models import Agent, CallRecord, Lead
 from app.schemas.schemas import LeadCreate, LeadInbound, LeadOut, LeadUpdate
 from app.api.deps import get_current_agent
 from app.services.aisensy import sync_lead_whatsapp_state
+from app.services.google_sheets import upsert_lead as sheets_upsert
 from app.services.pabbly import fire_event
 from app.services.phone_numbers import normalize_phone_number, phone_lookup_variants, phones_match
 
@@ -90,6 +91,7 @@ async def inbound_lead(
         db.commit()
         db.refresh(existing)
         background_tasks.add_task(sync_lead_whatsapp_state, existing.id)
+        background_tasks.add_task(sheets_upsert, existing)
         return existing
 
     # Round-robin assignment: pick agent with fewest active (non-converted/lost) leads
@@ -134,6 +136,7 @@ async def inbound_lead(
     })
 
     background_tasks.add_task(sync_lead_whatsapp_state, lead.id)
+    background_tasks.add_task(sheets_upsert, lead)
 
     return lead
 
@@ -212,6 +215,7 @@ def get_lead(
 def update_lead(
     lead_id: str,
     update: LeadUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
@@ -224,6 +228,7 @@ def update_lead(
     lead.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(lead)
+    background_tasks.add_task(sheets_upsert, lead)
     return lead
 
 

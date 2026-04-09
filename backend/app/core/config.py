@@ -110,6 +110,18 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
 
     # ---------------------------------------------------------------------------
+    # Google Sheets — lead sync
+    # ---------------------------------------------------------------------------
+    # JSON string of the service account credentials (from GCP → create service account key)
+    google_service_account_json: str = ""
+    # The ID of the Google Spreadsheet (from the URL: /spreadsheets/d/<ID>/edit)
+    google_spreadsheet_id: str = ""
+
+    @property
+    def use_google_sheets(self) -> bool:
+        return bool(self.google_service_account_json and self.google_spreadsheet_id)
+
+    # ---------------------------------------------------------------------------
     # Razorpay (Phase 2)
     # ---------------------------------------------------------------------------
     razorpay_key_id: str = ""

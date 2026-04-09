@@ -40,6 +40,15 @@ export default function AdminSettings() {
     queryFn: () => api.get("/admin/settings").then((r) => r.data),
   });
 
+  const { data: sheetsStatus } = useQuery<{
+    configured: boolean;
+    spreadsheet_url: string | null;
+  }>({
+    queryKey: ["admin", "sheets-status"],
+    queryFn: () => api.get("/admin/sheets/status").then((r) => r.data),
+    retry: false,
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) =>
       api.put(`/admin/settings/${key}`, { value }),
@@ -57,6 +66,25 @@ export default function AdminSettings() {
     provider_response: object;
   } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    rows_written: number;
+    spreadsheet_id: string;
+  } | null>(null);
+
+  const runSync = async () => {
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res = await api.post("/admin/sheets/sync");
+      setSyncResult(res.data);
+    } catch {
+      // handled below
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const getValue = (key: string) =>
     settings.find((s) => s.key === key)?.value ?? "false";
@@ -249,6 +277,55 @@ export default function AdminSettings() {
                 </pre>
               )}
             </div>
+          )}
+        </div>
+        {/* Google Sheets sync */}
+        <div className="bg-white rounded-xl shadow-sm p-5 border border-green-200">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">📊</span>
+            <h3 className="font-bold text-gray-800 text-lg">Google Sheets Sync</h3>
+            <span
+              className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
+                sheetsStatus?.configured
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {sheetsStatus?.configured ? "CONFIGURED" : "NOT CONFIGURED"}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Every lead create/update is synced to Google Sheets automatically.
+            Use this button to do a full bulk re-sync if the sheet gets out of date.
+          </p>
+          {sheetsStatus?.spreadsheet_url && (
+            <a
+              href={sheetsStatus.spreadsheet_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-4 block"
+            >
+              📄 Open Spreadsheet ↗
+            </a>
+          )}
+          <button
+            onClick={runSync}
+            disabled={syncLoading || !sheetsStatus?.configured}
+            className="bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+          >
+            {syncLoading ? "Syncing…" : "Bulk Sync All Leads → Sheet"}
+          </button>
+          {syncResult && (
+            <div className="mt-3 text-sm bg-green-50 border border-green-200 rounded-lg p-3">
+              ✅ Synced <strong>{syncResult.rows_written}</strong> leads to sheet{" "}
+              <code className="text-xs text-gray-600">{syncResult.spreadsheet_id}</code>
+            </div>
+          )}
+          {!sheetsStatus?.configured && (
+            <p className="mt-3 text-xs text-gray-400">
+              Set <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and{" "}
+              <code>GOOGLE_SPREADSHEET_ID</code> in your Render environment variables to enable.
+            </p>
           )}
         </div>
       </main>

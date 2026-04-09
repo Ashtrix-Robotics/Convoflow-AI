@@ -9,7 +9,7 @@ export default function TeamManagement() {
   const [newAgent, setNewAgent] = useState({ name: "", email: "", password: "" });
   const [editAgent, setEditAgent] = useState<any>(null);
 
-  const { data: agents, isLoading } = useQuery({
+  const { data: agents, isLoading, isError } = useQuery({
     queryKey: ["agents"],
     queryFn: async () => {
       const res = await api.get("/agents");
@@ -79,6 +79,8 @@ export default function TeamManagement() {
         <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
           {isLoading ? (
             <p className="p-8 text-center text-gray-500">Loading agents...</p>
+          ) : isError ? (
+            <p className="p-8 text-center text-red-500">Failed to load agents. The backend may still be deploying — refresh in a moment.</p>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>

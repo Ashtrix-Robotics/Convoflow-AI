@@ -7,7 +7,11 @@ from app.models.models import Agent
 from app.schemas.schemas import AgentCreate, AgentOut
 from app.api.deps import get_current_agent
 
-router = APIRouter(prefix="/agents", tags=["admin-agents"])
+router = APIRouter(
+    prefix="/agents",
+    tags=["admin-agents"],
+    dependencies=[Depends(get_current_agent)],  # All routes require auth
+)
 
 class AgentUpdateAdmin(BaseModel):
     name: str | None = None
@@ -16,11 +20,18 @@ class AgentUpdateAdmin(BaseModel):
     is_active: bool | None = None
 
 @router.get("/", response_model=list[AgentOut])
-def list_agents(db: Session = Depends(get_db)):
+def list_agents(
+    db: Session = Depends(get_db),
+    current_agent: Agent = Depends(get_current_agent),
+):
     return db.query(Agent).all()
 
 @router.post("/", response_model=AgentOut, status_code=status.HTTP_201_CREATED)
-def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
+def create_agent(
+    agent_in: AgentCreate,
+    db: Session = Depends(get_db),
+    current_agent: Agent = Depends(get_current_agent),
+):
     if db.query(Agent).filter(Agent.email == agent_in.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     agent = Agent(name=agent_in.name, email=agent_in.email, hashed_password=hash_password(agent_in.password))
@@ -30,7 +41,12 @@ def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
     return agent
 
 @router.put("/{agent_id}", response_model=AgentOut)
-def update_agent(agent_id: str, update_in: AgentUpdateAdmin, db: Session = Depends(get_db)):
+def update_agent(
+    agent_id: str,
+    update_in: AgentUpdateAdmin,
+    db: Session = Depends(get_db),
+    current_agent: Agent = Depends(get_current_agent),
+):
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -48,7 +64,11 @@ def update_agent(agent_id: str, update_in: AgentUpdateAdmin, db: Session = Depen
     return agent
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_agent(agent_id: str, db: Session = Depends(get_db)):
+def delete_agent(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    current_agent: Agent = Depends(get_current_agent),
+):
     from app.models.models import AppSetting, CallRecord, Lead, WhatsAppConversation
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:

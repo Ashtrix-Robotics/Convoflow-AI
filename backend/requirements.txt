@@ -12,6 +12,7 @@ openai==1.73.0
 httpx==0.28.1
 python-dotenv==1.1.0
 aiofiles==24.1.0
+slowapi==0.1.9
 psycopg2-binary==2.9.10
 supabase==2.15.1
 gspread==6.1.4

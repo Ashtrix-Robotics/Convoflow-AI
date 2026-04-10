@@ -43,6 +43,7 @@ export default function AdminSettings() {
   const { data: sheetsStatus } = useQuery<{
     configured: boolean;
     spreadsheet_url: string | null;
+    source_sheet_name: string;
   }>({
     queryKey: ["admin", "sheets-status"],
     queryFn: () => api.get("/admin/sheets/status").then((r) => r.data),
@@ -72,6 +73,24 @@ export default function AdminSettings() {
     rows_written: number;
     spreadsheet_id: string;
   } | null>(null);
+
+  const [sourceSheetName, setSourceSheetName] = useState("");
+  const [sourceSheetSaving, setSourceSheetSaving] = useState(false);
+
+  // Sync source sheet name from server
+  const currentSourceSheet = sheetsStatus?.source_sheet_name ?? "";
+
+  const saveSourceSheet = async () => {
+    setSourceSheetSaving(true);
+    try {
+      await api.put("/admin/sheets/source-sheet", { value: sourceSheetName || currentSourceSheet });
+      qc.invalidateQueries({ queryKey: ["admin", "sheets-status"] });
+    } catch {
+      // ignore
+    } finally {
+      setSourceSheetSaving(false);
+    }
+  };
 
   const runSync = async () => {
     setSyncLoading(true);
@@ -311,6 +330,40 @@ export default function AdminSettings() {
               📄 Open Spreadsheet ↗
             </a>
           )}
+
+          {/* Source sheet tab name */}
+          {sheetsStatus?.configured && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <label className="text-xs text-gray-500 font-medium block mb-1">
+                Source Sheet Tab Name
+              </label>
+              <p className="text-xs text-gray-400 mb-2">
+                The worksheet tab where inbound leads arrive (from Meta ads). Leave blank to use &quot;Sheet1&quot;.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  defaultValue={currentSourceSheet}
+                  onChange={(e) => setSourceSheetName(e.target.value)}
+                  placeholder="Sheet1"
+                  className="border rounded-lg px-3 py-2 text-sm flex-1 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                />
+                <button
+                  onClick={saveSourceSheet}
+                  disabled={sourceSheetSaving}
+                  className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {sourceSheetSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {currentSourceSheet && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Current: <strong>{currentSourceSheet}</strong>
+                </p>
+              )}
+            </div>
+          )}
+
           <button
             onClick={runSync}
             disabled={syncLoading || !sheetsStatus?.configured}

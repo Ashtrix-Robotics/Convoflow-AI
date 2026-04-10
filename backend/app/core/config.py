@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     google_service_account_json: str = ""
     # The ID of the Google Spreadsheet (from the URL: /spreadsheets/d/<ID>/edit)
     google_spreadsheet_id: str = ""
+    # Name of the source worksheet tab where inbound leads live (from Meta ads sheet)
+    # This is the tab Pabbly watches. Leave blank to use 'Sheet1'.
+    google_source_sheet_name: str = ""
 
     @property
     def use_google_sheets(self) -> bool:

@@ -474,5 +474,16 @@ def sheets_status(agent: Agent = Depends(get_current_agent)):
             if configured else None
         ),
         "auth_error": auth_error or None,
+        "source_sheet_name": settings.google_source_sheet_name or "",
     }
+
+
+@router.put("/sheets/source-sheet", tags=["admin"])
+def update_source_sheet_name(
+    payload: SettingUpdateIn,
+    agent: Agent = Depends(get_current_agent),
+):
+    """Update the source worksheet tab name (the tab Pabbly watches for inbound leads)."""
+    settings.google_source_sheet_name = payload.value.strip()
+    return {"source_sheet_name": settings.google_source_sheet_name}
 

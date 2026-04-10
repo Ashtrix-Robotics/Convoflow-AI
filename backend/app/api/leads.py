@@ -149,8 +149,10 @@ async def inbound_lead(
 def list_leads(
     status_filter: str | None = None,
     intent: str | None = None,
+    intent_category: str | None = None,
     campaign: str | None = None,
     assigned_agent_id: str | None = None,
+    search: str | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -160,12 +162,21 @@ def list_leads(
     q = db.query(Lead)
     if status_filter:
         q = q.filter(Lead.status == status_filter)
-    if intent:
-        q = q.filter(Lead.intent_category == intent)
+    resolved_intent = intent_category or intent
+    if resolved_intent:
+        q = q.filter(Lead.intent_category == resolved_intent)
     if campaign:
         q = q.filter(Lead.source_campaign == campaign)
     if assigned_agent_id:
         q = q.filter(Lead.assigned_agent_id == assigned_agent_id)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(
+            Lead.name.ilike(term)
+            | Lead.phone.ilike(term)
+            | Lead.email.ilike(term)
+            | Lead.source_campaign.ilike(term)
+        )
 
     # Priority sort: new leads first, then by next_followup_at ASC, then created_at ASC
     q = q.order_by(

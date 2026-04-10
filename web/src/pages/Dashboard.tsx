@@ -46,7 +46,8 @@ export default function Dashboard() {
 
   const { data: recentLeads = [], isLoading: leadsLoading } = useQuery({
     queryKey: ["leads", "recent"],
-    queryFn: () => api.get("/leads?limit=8&sort=created_at&order=desc").then((r) => r.data),
+    queryFn: () =>
+      api.get("/leads?limit=8&sort=created_at&order=desc").then((r) => r.data),
   });
 
   const { data: rawAnalytics, isLoading: analyticsLoading } = useQuery({
@@ -277,7 +278,10 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-800">Recent Leads</h2>
-            <Link to="/leads" className="text-sm text-[#FF6600] hover:underline font-medium">
+            <Link
+              to="/leads"
+              className="text-sm text-[#FF6600] hover:underline font-medium"
+            >
               View all →
             </Link>
           </div>
@@ -285,7 +289,10 @@ export default function Dashboard() {
           {leadsLoading && (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-sm p-4 animate-pulse">
+                <div
+                  key={i}
+                  className="bg-white rounded-xl shadow-sm p-4 animate-pulse"
+                >
                   <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
                   <div className="h-3 bg-gray-200 rounded w-1/2" />
                 </div>
@@ -295,7 +302,10 @@ export default function Dashboard() {
 
           {!leadsLoading && recentLeads.length === 0 && (
             <div className="text-center py-10 bg-white rounded-xl shadow-sm text-gray-400">
-              <p>No leads yet. Configure Pabbly to start receiving leads automatically.</p>
+              <p>
+                No leads yet. Configure Pabbly to start receiving leads
+                automatically.
+              </p>
             </div>
           )}
 
@@ -308,18 +318,26 @@ export default function Dashboard() {
                   className="block bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition border border-transparent hover:border-orange-200"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="font-semibold text-gray-800 text-sm truncate">{lead.name}</p>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${LEAD_STATUS_COLOR[lead.status] ?? "bg-gray-100 text-gray-500"}`}>
+                    <p className="font-semibold text-gray-800 text-sm truncate">
+                      {lead.name}
+                    </p>
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${LEAD_STATUS_COLOR[lead.status] ?? "bg-gray-100 text-gray-500"}`}
+                    >
                       {lead.status}
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 truncate">{lead.phone}</p>
                   {lead.source_campaign && (
-                    <p className="text-xs text-gray-400 mt-1 truncate">{lead.source_campaign}</p>
+                    <p className="text-xs text-gray-400 mt-1 truncate">
+                      {lead.source_campaign}
+                    </p>
                   )}
                   {lead.created_at && (
                     <p className="text-[10px] text-gray-300 mt-2">
-                      {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(lead.created_at), {
+                        addSuffix: true,
+                      })}
                     </p>
                   )}
                 </Link>

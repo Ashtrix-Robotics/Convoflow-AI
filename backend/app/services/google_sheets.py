@@ -64,8 +64,14 @@ def _get_client():
         return None
 
 
+WORKSHEET_NAME = "Convoflow Leads"
+
+
 def _get_sheet():
-    """Return the first worksheet of the configured spreadsheet."""
+    """
+    Return the 'Convoflow Leads' worksheet, creating it if it doesn't exist.
+    This leaves the user's existing sheets (Sheet1, etc.) untouched.
+    """
     try:
         from app.core.config import settings
         if not settings.google_spreadsheet_id:
@@ -73,7 +79,12 @@ def _get_sheet():
         client = _get_client()
         if not client:
             return None
-        return client.open_by_key(settings.google_spreadsheet_id).sheet1
+        spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
+        try:
+            return spreadsheet.worksheet(WORKSHEET_NAME)
+        except Exception:
+            # Tab doesn't exist yet — create it
+            return spreadsheet.add_worksheet(title=WORKSHEET_NAME, rows=1000, cols=20)
     except Exception as exc:
         logger.error("Failed to open Google Sheet: %s", exc)
         return None
@@ -130,13 +141,16 @@ def upsert_lead(lead: Any) -> None:
         lead_id = str(lead.id)
 
         try:
-            import gspread
             cell = sheet.find(lead_id, in_column=1)
-            # Update in place (row number is 1-based)
+            # Update in place — gspread 6.x: values first, range second
             end_col = chr(ord("A") + len(HEADERS) - 1)
-            sheet.update(f"A{cell.row}:{end_col}{cell.row}", [row], value_input_option="RAW")
+            sheet.update(
+                [row],
+                f"A{cell.row}:{end_col}{cell.row}",
+                value_input_option="RAW",
+            )
         except Exception:
-            # Cell not found → append
+            # Cell not found → append as new row
             sheet.append_row(row, value_input_option="RAW")
 
     except Exception as exc:
@@ -155,7 +169,8 @@ def bulk_sync(leads: list[Any]) -> int:
     try:
         rows = [HEADERS] + [_lead_row(lead) for lead in leads]
         sheet.clear()
-        sheet.update("A1", rows, value_input_option="RAW")
+        # gspread 6.x: values first, range_name second
+        sheet.update(rows, "A1", value_input_option="RAW")
         return len(rows) - 1  # exclude header
     except Exception as exc:
         logger.error("Google Sheets bulk sync failed: %s", exc)

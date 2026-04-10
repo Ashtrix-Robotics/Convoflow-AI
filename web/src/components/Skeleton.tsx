@@ -5,9 +5,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = "" }: SkeletonProps) {
-  return (
-    <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
-  );
+  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
 }
 
 /** 4 KPI cards skeleton for Dashboard */
@@ -50,7 +48,10 @@ export function PipelineSkeleton() {
           </div>
           <div className="space-y-2">
             {[...Array(col < 2 ? 3 : 1)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm p-3 border border-gray-100">
+              <div
+                key={i}
+                className="bg-white rounded-lg shadow-sm p-3 border border-gray-100"
+              >
                 <Skeleton className="h-3 w-3/4 mb-2" />
                 <Skeleton className="h-3 w-1/2 mb-2" />
                 <Skeleton className="h-3 w-1/3" />
@@ -108,7 +109,10 @@ export function SettingsSkeleton() {
   return (
     <div className="space-y-4">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between">
+        <div
+          key={i}
+          className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between"
+        >
           <div className="space-y-2 flex-1">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-3 w-64" />
@@ -125,7 +129,10 @@ export function TeamSkeleton() {
   return (
     <div className="space-y-4">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between">
+        <div
+          key={i}
+          className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between"
+        >
           <div className="space-y-2">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-3 w-48" />

@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+} from "react-native";
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { getMe, logout } from "../../services/api";

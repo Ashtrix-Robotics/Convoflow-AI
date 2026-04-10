@@ -179,7 +179,7 @@ export default function AdminSettings() {
   };
 
   const getValue = (key: string) =>
-    settings.find((s) => s.key === key)?.value ?? "false";
+    settings.find((s) => s.key === key)?.value ?? "";
 
   const handleToggle = (key: string) => {
     const current = getValue(key) === "true";

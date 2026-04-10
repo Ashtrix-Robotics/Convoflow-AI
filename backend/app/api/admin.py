@@ -192,11 +192,20 @@ def _apply_campaign_in(c: CampaignKnowledge, payload: CampaignKnowledgeIn) -> No
 # Settings endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Pre-defined settings with descriptions
+# Pre-defined settings with descriptions and defaults
 _KNOWN_SETTINGS = {
-    "auto_whatsapp_mode": "When enabled, AI automatically initiates WhatsApp conversations with every new lead — no agent call required.",
-    "auto_whatsapp_campaign": "AiSensy campaign name to use for auto-initiated messages (leave blank to use the default campaign).",
-    "whatsapp_reply_ai_enabled": "When enabled, AI will auto-reply to inbound WhatsApp messages from leads.",
+    "auto_whatsapp_mode": {
+        "default": "false",
+        "description": "When enabled, AI automatically initiates WhatsApp conversations with every new lead — no agent call required.",
+    },
+    "auto_whatsapp_campaign": {
+        "default": "",
+        "description": "AiSensy campaign name to use for auto-initiated messages (leave blank to use the default campaign).",
+    },
+    "whatsapp_reply_ai_enabled": {
+        "default": "false",
+        "description": "When enabled, AI will auto-reply to inbound WhatsApp messages from leads.",
+    },
 }
 
 
@@ -209,14 +218,14 @@ def get_all_settings(
     saved = {row.key: row for row in db.query(AppSetting).all()}
     result = []
     # Ensure known settings always appear
-    for key, desc in _KNOWN_SETTINGS.items():
+    for key, cfg in _KNOWN_SETTINGS.items():
         if key in saved:
             result.append(saved[key])
         else:
             result.append(AppSetting(
                 key=key,
-                value="false",
-                description=desc,
+                value=cfg["default"],
+                description=cfg["description"],
                 updated_at=_utcnow(),
             ))
     # Append any other saved settings not in the known list
@@ -233,7 +242,8 @@ def update_setting(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    desc = _KNOWN_SETTINGS.get(key)
+    cfg = _KNOWN_SETTINGS.get(key)
+    desc = cfg["description"] if cfg else None
     row = _set_setting(db, key, payload.value, description=desc, agent_id=agent.id)
     return row
 

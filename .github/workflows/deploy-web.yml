@@ -33,13 +33,11 @@ jobs:
           VITE_API_URL: https://convoflow-api.onrender.com
 
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: web
-          vercel-args: "--prod"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_5DFCjy6cGDgOt6V3nqdFLtDI
+          VERCEL_PROJECT_ID: prj_cI6ARP2Os2995N9YgjNXPJNVw5BA
+        run: cd web && npx vercel --prod --yes --token "$VERCEL_TOKEN"
 
   smoke-test:
     needs: build-and-deploy

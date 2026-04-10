@@ -73,6 +73,13 @@ def _get_client():
                     f"Paste the raw JSON (starting with {{) without surrounding quotes. "
                     f"Inner error: {inner_exc}"
                 ) from inner_exc
+
+        # Normalize private_key newlines: when copied from a .json file the key may
+        # have literal \\n (backslash+n) instead of real newline chars in the PEM.
+        # This is always safe to apply — if the key already has real newlines
+        # the replace finds nothing to substitute.
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         _client = gspread.authorize(creds)
         _last_auth_error = ""

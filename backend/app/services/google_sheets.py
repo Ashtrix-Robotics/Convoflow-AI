@@ -34,18 +34,20 @@ HEADERS = [
     "Updated At",
 ]
 
-_client = None   # lazy-initialised gspread client
+_client = None         # lazy-initialised gspread client
+_last_auth_error = ""  # last error from _get_client(), exposed via status endpoint
 
 
 def _get_client():
     """Return authenticated gspread client (cached). Returns None if not configured."""
-    global _client
+    global _client, _last_auth_error
     if _client is not None:
         return _client
 
     try:
         from app.core.config import settings  # local import avoids circular dependency
         if not settings.google_service_account_json:
+            _last_auth_error = "GOOGLE_SERVICE_ACCOUNT_JSON is empty"
             return None
 
         import gspread
@@ -58,10 +60,17 @@ def _get_client():
         creds_dict = json.loads(settings.google_service_account_json)
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         _client = gspread.authorize(creds)
+        _last_auth_error = ""
         return _client
     except Exception as exc:
+        _last_auth_error = str(exc)
         logger.error("Google Sheets auth failed: %s", exc)
         return None
+
+
+def get_auth_error() -> str:
+    """Return the last authentication error string (empty = no error)."""
+    return _last_auth_error
 
 
 WORKSHEET_NAME = "Convoflow Leads"

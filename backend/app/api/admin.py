@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models.models import Agent, AppSetting, CampaignKnowledge, Lead
 from app.services.aisensy import initiate_lead_campaign, sync_lead_whatsapp_state
-from app.services.google_sheets import bulk_sync as sheets_bulk_sync
+from app.services.google_sheets import bulk_sync as sheets_bulk_sync, get_auth_error as sheets_auth_error
 from app.services.phone_numbers import normalize_phone_number
 
 logger = logging.getLogger(__name__)
@@ -455,18 +455,24 @@ def sheets_sync(
         )
     leads = db.query(Lead).order_by(Lead.created_at.asc()).all()
     written = sheets_bulk_sync(leads)
-    return {"rows_written": written, "spreadsheet_id": settings.google_spreadsheet_id}
+    return {
+        "rows_written": written,
+        "spreadsheet_id": settings.google_spreadsheet_id,
+        "auth_error": sheets_auth_error() or None,
+    }
 
 
 @router.get("/sheets/status", tags=["admin"])
 def sheets_status(agent: Agent = Depends(get_current_agent)):
-    """Returns whether Google Sheets sync is configured and the spreadsheet URL."""
+    """Returns whether Google Sheets sync is configured and any auth error."""
     configured = settings.use_google_sheets
+    auth_error = sheets_auth_error()
     return {
         "configured": configured,
         "spreadsheet_url": (
             f"https://docs.google.com/spreadsheets/d/{settings.google_spreadsheet_id}/edit"
             if configured else None
         ),
+        "auth_error": auth_error or None,
     }
 

@@ -153,12 +153,25 @@ export default function AdminSettings() {
     setPullLoading(true);
     setPullResult(null);
     try {
-      const res = await api.post("/admin/sheets/pull");
-      setPullResult(res.data);
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      await api.post("/admin/sheets/pull");
+      // Poll for completion
+      const poll = async (): Promise<void> => {
+        const res = await api.get("/admin/sheets/pull-status");
+        if (res.data.status === "done") {
+          setPullResult(res.data);
+          qc.invalidateQueries({ queryKey: ["leads"] });
+          setPullLoading(false);
+          setConfirmModal(null);
+        } else if (res.data.status === "error") {
+          setPullLoading(false);
+          setConfirmModal(null);
+        } else {
+          await new Promise((r) => setTimeout(r, 3000));
+          return poll();
+        }
+      };
+      await poll();
     } catch {
-      // handled below
-    } finally {
       setPullLoading(false);
       setConfirmModal(null);
     }

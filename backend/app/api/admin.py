@@ -518,15 +518,121 @@ def get_worksheets(agent: Agent = Depends(get_current_agent)):
     return {"worksheets": tabs}
 
 
-@router.post("/sheets/pull", tags=["admin"])
+def _do_pull_leads(sheet_name: str):
+    """Background task: pull leads from Google Sheet into the database."""
+    from app.core.database import create_db_session
+
+    db = create_db_session()
+    try:
+        _set_setting(db, "_pull_status", json.dumps({
+            "status": "running", "sheet_name": sheet_name,
+        }))
+
+        rows = sheets_pull_leads(sheet_name)
+        if not rows:
+            _set_setting(db, "_pull_status", json.dumps({
+                "status": "done", "created": 0, "updated": 0,
+                "skipped": 0, "total_rows": 0, "sheet_name": sheet_name,
+            }))
+            return
+
+        COLUMN_MAP = {
+            "name": "name",
+            "phone number": "phone",
+            "phone": "phone",
+            "email": "email",
+            "campaign": "source_campaign",
+            "source_campaign": "source_campaign",
+            "lead source": "ad_set",
+            "ad_set": "ad_set",
+            "ad set": "ad_set",
+            "lead temperature": "interest_level",
+            "interest level": "interest_level",
+            "course interested in": "course_interested_in",
+            "academy preference": "course_interested_in",
+            "status": "status",
+            "notes": "notes",
+            "detailed response": "notes",
+        }
+
+        created = 0
+        updated = 0
+        skipped = 0
+
+        for row in rows:
+            mapped: dict[str, str] = {}
+            for col, val in row.items():
+                key = str(col).strip().lower()
+                if key in COLUMN_MAP:
+                    field = COLUMN_MAP[key]
+                    if val and str(val).strip() and field not in mapped:
+                        mapped[field] = str(val).strip()
+
+            phone = mapped.get("phone", "")
+            name = mapped.get("name", "")
+            if not phone or not name:
+                skipped += 1
+                continue
+
+            normalized = normalize_phone_number(phone, settings.aisensy_default_country_code)
+            if not normalized:
+                skipped += 1
+                continue
+
+            existing = db.query(Lead).filter(Lead.phone == normalized).first()
+            if not existing:
+                suffix = normalized[-10:]
+                existing = db.query(Lead).filter(Lead.phone.like(f"%{suffix}")).first()
+
+            if existing:
+                for field in ("name", "email", "source_campaign", "ad_set", "interest_level", "course_interested_in"):
+                    if mapped.get(field):
+                        setattr(existing, field, mapped[field])
+                existing.updated_at = _utcnow()
+                updated += 1
+            else:
+                lead = Lead(
+                    name=name,
+                    phone=normalized,
+                    email=mapped.get("email"),
+                    source_campaign=mapped.get("source_campaign"),
+                    ad_set=mapped.get("ad_set"),
+                    interest_level=mapped.get("interest_level"),
+                    course_interested_in=mapped.get("course_interested_in"),
+                    notes=mapped.get("notes"),
+                    status=mapped.get("status", "new") if mapped.get("status") in (
+                        "new", "contacted", "in_progress", "qualified", "payment_sent", "converted", "lost", "deferred"
+                    ) else "new",
+                )
+                db.add(lead)
+                created += 1
+
+        db.commit()
+        _set_setting(db, "_pull_status", json.dumps({
+            "status": "done", "created": created, "updated": updated,
+            "skipped": skipped, "total_rows": len(rows), "sheet_name": sheet_name,
+        }))
+    except Exception as exc:
+        logger.exception("sheets pull failed")
+        try:
+            _set_setting(db, "_pull_status", json.dumps({
+                "status": "error", "detail": str(exc)[:200],
+            }))
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+@router.post("/sheets/pull", tags=["admin"], status_code=202)
 def sheets_pull(
+    bg: BackgroundTasks,
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
     """
-    Pull leads from the source Google Sheet tab into the database.
-    Maps sheet columns to lead fields, deduplicates by phone, and creates new leads.
-    Does NOT delete existing leads — only adds/updates from the sheet.
+    Kick off a background pull of leads from the source Google Sheet tab.
+    Returns 202 immediately. Poll GET /admin/sheets/pull-status for results.
     """
     if not settings.use_google_sheets:
         raise HTTPException(
@@ -535,94 +641,26 @@ def sheets_pull(
         )
 
     sheet_name = _get_setting(db, "google_source_sheet_name", settings.google_source_sheet_name or "Sheet1") or "Sheet1"
-    rows = sheets_pull_leads(sheet_name)
-    if not rows:
-        return {"created": 0, "updated": 0, "skipped": 0, "sheet_name": sheet_name, "total_rows": 0}
+    _set_setting(db, "_pull_status", json.dumps({
+        "status": "running", "sheet_name": sheet_name,
+    }))
+    bg.add_task(_do_pull_leads, sheet_name)
+    return {"status": "started", "sheet_name": sheet_name}
 
-    # Column mapping: sheet header → Lead model field
-    COLUMN_MAP = {
-        "name": "name",
-        "phone number": "phone",
-        "phone": "phone",
-        "email": "email",
-        "campaign": "source_campaign",
-        "source_campaign": "source_campaign",
-        "lead source": "ad_set",
-        "ad_set": "ad_set",
-        "ad set": "ad_set",
-        "lead temperature": "interest_level",
-        "interest level": "interest_level",
-        "course interested in": "course_interested_in",
-        "academy preference": "course_interested_in",
-        "status": "status",
-        "notes": "notes",
-        "detailed response": "notes",
-    }
 
-    created = 0
-    updated = 0
-    skipped = 0
-
-    for row in rows:
-        # Normalize column names to lowercase for matching
-        mapped: dict[str, str] = {}
-        for col, val in row.items():
-            key = str(col).strip().lower()
-            if key in COLUMN_MAP:
-                field = COLUMN_MAP[key]
-                if val and str(val).strip() and field not in mapped:
-                    mapped[field] = str(val).strip()
-
-        phone = mapped.get("phone", "")
-        name = mapped.get("name", "")
-        if not phone or not name:
-            skipped += 1
-            continue
-
-        normalized = normalize_phone_number(phone, settings.aisensy_default_country_code)
-        if not normalized:
-            skipped += 1
-            continue
-
-        # Deduplicate by phone
-        existing = db.query(Lead).filter(Lead.phone == normalized).first()
-        if not existing:
-            # Also check suffix match
-            suffix = normalized[-10:]
-            existing = db.query(Lead).filter(Lead.phone.like(f"%{suffix}")).first()
-
-        if existing:
-            # Update if fields have values
-            for field in ("name", "email", "source_campaign", "ad_set", "interest_level", "course_interested_in"):
-                if mapped.get(field):
-                    setattr(existing, field, mapped[field])
-            existing.updated_at = _utcnow()
-            updated += 1
-        else:
-            lead = Lead(
-                name=name,
-                phone=normalized,
-                email=mapped.get("email"),
-                source_campaign=mapped.get("source_campaign"),
-                ad_set=mapped.get("ad_set"),
-                interest_level=mapped.get("interest_level"),
-                course_interested_in=mapped.get("course_interested_in"),
-                notes=mapped.get("notes"),
-                status=mapped.get("status", "new") if mapped.get("status") in (
-                    "new", "contacted", "in_progress", "qualified", "payment_sent", "converted", "lost", "deferred"
-                ) else "new",
-            )
-            db.add(lead)
-            created += 1
-
-    db.commit()
-    return {
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-        "total_rows": len(rows),
-        "sheet_name": sheet_name,
-    }
+@router.get("/sheets/pull-status", tags=["admin"])
+def sheets_pull_status(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Return the current status of the last pull operation."""
+    raw = _get_setting(db, "_pull_status", "")
+    if not raw:
+        return {"status": "idle"}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"status": "idle"}
 
 
 @router.delete("/leads/purge", tags=["admin"])

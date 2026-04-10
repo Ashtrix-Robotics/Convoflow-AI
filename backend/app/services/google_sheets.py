@@ -62,16 +62,16 @@ def _get_client():
         try:
             creds_dict = json.loads(raw)
         except json.JSONDecodeError:
-            # Fallback: value was copy-pasted from a JSON file and has backslash-escaped
-            # internal quotes  e.g. {\"type\":\"service_account\",...}
-            # Treat it as a JSON string value and decode it
+            # Fallback: value was copy-pasted from a JSON file with backslash-escaped
+            # internal quotes e.g. {\"type\":\"service_account\",...}
+            # Fix by replacing \" with " — \n sequences remain as-is for json.loads to handle
             try:
-                creds_dict = json.loads(json.loads(f'"{raw}"'))
+                creds_dict = json.loads(raw.replace('\\"', '"'))
             except Exception as inner_exc:
                 raise ValueError(
                     f"GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. "
-                    f"Make sure you paste the raw JSON (starting with {{) — "
-                    f"not the escaped version from a .json file. Inner error: {inner_exc}"
+                    f"Paste the raw JSON (starting with {{) without surrounding quotes. "
+                    f"Inner error: {inner_exc}"
                 ) from inner_exc
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         _client = gspread.authorize(creds)

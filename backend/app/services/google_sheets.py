@@ -57,7 +57,22 @@ def _get_client():
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive.file",
         ]
-        creds_dict = json.loads(settings.google_service_account_json)
+        raw = settings.google_service_account_json.strip()
+        # Try parsing directly first (correct format: {"type":"service_account",...})
+        try:
+            creds_dict = json.loads(raw)
+        except json.JSONDecodeError:
+            # Fallback: value was copy-pasted from a JSON file and has backslash-escaped
+            # internal quotes  e.g. {\"type\":\"service_account\",...}
+            # Treat it as a JSON string value and decode it
+            try:
+                creds_dict = json.loads(json.loads(f'"{raw}"'))
+            except Exception as inner_exc:
+                raise ValueError(
+                    f"GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. "
+                    f"Make sure you paste the raw JSON (starting with {{) — "
+                    f"not the escaped version from a .json file. Inner error: {inner_exc}"
+                ) from inner_exc
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         _client = gspread.authorize(creds)
         _last_auth_error = ""

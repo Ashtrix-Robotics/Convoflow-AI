@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import NavBar from "../components/NavBar";
@@ -50,6 +50,13 @@ export default function AdminSettings() {
     retry: false,
   });
 
+  const { data: worksheetsData } = useQuery<{ worksheets: string[] }>({
+    queryKey: ["admin", "sheets-worksheets"],
+    queryFn: () => api.get("/admin/sheets/worksheets").then((r) => r.data),
+    enabled: !!sheetsStatus?.configured,
+    retry: false,
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) =>
       api.put(`/admin/settings/${key}`, { value }),
@@ -74,16 +81,51 @@ export default function AdminSettings() {
     spreadsheet_id: string;
   } | null>(null);
 
+  const [pullLoading, setPullLoading] = useState(false);
+  const [pullResult, setPullResult] = useState<{
+    created: number;
+    updated: number;
+    skipped: number;
+    total_rows: number;
+    sheet_name: string;
+  } | null>(null);
+
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<{ deleted: number } | null>(
+    null,
+  );
+
   const [sourceSheetName, setSourceSheetName] = useState("");
   const [sourceSheetSaving, setSourceSheetSaving] = useState(false);
 
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    impact: string;
+    confirmLabel: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => void;
+  } | null>(null);
+
   // Sync source sheet name from server
   const currentSourceSheet = sheetsStatus?.source_sheet_name ?? "";
+  const worksheets = worksheetsData?.worksheets ?? [];
+
+  // Set dropdown default when server data arrives
+  useEffect(() => {
+    if (currentSourceSheet && !sourceSheetName) {
+      setSourceSheetName(currentSourceSheet);
+    }
+  }, [currentSourceSheet]);
 
   const saveSourceSheet = async () => {
     setSourceSheetSaving(true);
     try {
-      await api.put("/admin/sheets/source-sheet", { value: sourceSheetName || currentSourceSheet });
+      await api.put("/admin/sheets/source-sheet", {
+        value: sourceSheetName || currentSourceSheet,
+      });
       qc.invalidateQueries({ queryKey: ["admin", "sheets-status"] });
     } catch {
       // ignore
@@ -102,6 +144,37 @@ export default function AdminSettings() {
       // handled below
     } finally {
       setSyncLoading(false);
+      setConfirmModal(null);
+    }
+  };
+
+  const runPull = async () => {
+    setPullLoading(true);
+    setPullResult(null);
+    try {
+      const res = await api.post("/admin/sheets/pull");
+      setPullResult(res.data);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    } catch {
+      // handled below
+    } finally {
+      setPullLoading(false);
+      setConfirmModal(null);
+    }
+  };
+
+  const runPurge = async () => {
+    setPurgeLoading(true);
+    setPurgeResult(null);
+    try {
+      const res = await api.delete("/admin/leads/purge");
+      setPurgeResult(res.data);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    } catch {
+      // handled below
+    } finally {
+      setPurgeLoading(false);
+      setConfirmModal(null);
     }
   };
 
@@ -316,9 +389,8 @@ export default function AdminSettings() {
             </span>
           </div>
           <p className="text-sm text-gray-500 mb-4">
-            Every lead create/update is synced to Google Sheets automatically.
-            Use this button to do a full bulk re-sync if the sheet gets out of
-            date.
+            Manage the link between your Google Sheet and the application
+            database.
           </p>
           {sheetsStatus?.spreadsheet_url && (
             <a
@@ -331,23 +403,38 @@ export default function AdminSettings() {
             </a>
           )}
 
-          {/* Source sheet tab name */}
+          {/* Source sheet tab selector */}
           {sheetsStatus?.configured && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="mb-5 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <label className="text-xs text-gray-500 font-medium block mb-1">
-                Source Sheet Tab Name
+                Source Sheet Tab
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                The worksheet tab where inbound leads arrive (from Meta ads). Leave blank to use &quot;Sheet1&quot;.
+                Select the worksheet tab where inbound leads arrive (from Meta
+                ads).
               </p>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  defaultValue={currentSourceSheet}
-                  onChange={(e) => setSourceSheetName(e.target.value)}
-                  placeholder="Sheet1"
-                  className="border rounded-lg px-3 py-2 text-sm flex-1 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                />
+                {worksheets.length > 0 ? (
+                  <select
+                    value={sourceSheetName || currentSourceSheet || "Sheet1"}
+                    onChange={(e) => setSourceSheetName(e.target.value)}
+                    className="border rounded-lg px-3 py-2 text-sm flex-1 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white"
+                  >
+                    {worksheets.map((ws) => (
+                      <option key={ws} value={ws}>
+                        {ws}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={sourceSheetName || currentSourceSheet}
+                    onChange={(e) => setSourceSheetName(e.target.value)}
+                    placeholder="Sheet1"
+                    className="border rounded-lg px-3 py-2 text-sm flex-1 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                  />
+                )}
                 <button
                   onClick={saveSourceSheet}
                   disabled={sourceSheetSaving}
@@ -364,22 +451,128 @@ export default function AdminSettings() {
             </div>
           )}
 
-          <button
-            onClick={runSync}
-            disabled={syncLoading || !sheetsStatus?.configured}
-            className="bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
-          >
-            {syncLoading ? "Syncing…" : "Bulk Sync All Leads → Sheet"}
-          </button>
-          {syncResult && (
-            <div className="mt-3 text-sm bg-green-50 border border-green-200 rounded-lg p-3">
-              ✅ Synced <strong>{syncResult.rows_written}</strong> leads to
-              sheet{" "}
-              <code className="text-xs text-gray-600">
-                {syncResult.spreadsheet_id}
-              </code>
+          {/* Action buttons */}
+          {sheetsStatus?.configured && (
+            <div className="space-y-3">
+              {/* Pull from Sheet */}
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-800">
+                    ⬇️ Pull Leads from Sheet
+                  </p>
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    Import leads from the source sheet tab into the database.
+                    Deduplicates by phone number — existing leads are updated,
+                    new ones are created.
+                  </p>
+                  {pullResult && (
+                    <div className="mt-2 text-xs bg-blue-100 rounded p-2">
+                      ✅ From &quot;{pullResult.sheet_name}&quot;:{" "}
+                      <strong>{pullResult.created}</strong> created,{" "}
+                      <strong>{pullResult.updated}</strong> updated,{" "}
+                      <strong>{pullResult.skipped}</strong> skipped (of{" "}
+                      {pullResult.total_rows} rows)
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    setConfirmModal({
+                      open: true,
+                      title: "Pull Leads from Google Sheet",
+                      description: `This will read all rows from "${sourceSheetName || currentSourceSheet || "Sheet1"}" and import them into the database.`,
+                      impact:
+                        "• New leads will be created for phone numbers not already in the database.\n• Existing leads (matched by phone) will have their fields updated.\n• No leads will be deleted.\n• This does NOT affect the Google Sheet itself.",
+                      confirmLabel: "Pull Leads",
+                      variant: "info",
+                      onConfirm: runPull,
+                    })
+                  }
+                  disabled={pullLoading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {pullLoading ? "Pulling…" : "Pull from Sheet"}
+                </button>
+              </div>
+
+              {/* Push to Sheet */}
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-800">
+                    ⬆️ Push Leads to Sheet
+                  </p>
+                  <p className="text-xs text-green-600 mt-0.5">
+                    Overwrites the &quot;Convoflow Leads&quot; tab with all
+                    current database leads. The source tab is NOT affected.
+                  </p>
+                  {syncResult && (
+                    <div className="mt-2 text-xs bg-green-100 rounded p-2">
+                      ✅ Synced <strong>{syncResult.rows_written}</strong> leads
+                      to sheet
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    setConfirmModal({
+                      open: true,
+                      title: "Push All Leads to Google Sheet",
+                      description:
+                        'This will clear the "Convoflow Leads" tab and rewrite it with all leads currently in the database.',
+                      impact:
+                        '• The "Convoflow Leads" tab will be completely cleared and rewritten.\n• Your source leads tab is NOT affected.\n• Any manual edits made directly in "Convoflow Leads" will be lost.\n• This is useful to re-sync after changes.',
+                      confirmLabel: "Push to Sheet",
+                      variant: "warning",
+                      onConfirm: runSync,
+                    })
+                  }
+                  disabled={syncLoading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {syncLoading ? "Syncing…" : "Push to Sheet"}
+                </button>
+              </div>
+
+              {/* Purge all leads */}
+              <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800">
+                    🗑️ Purge All Leads
+                  </p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    Permanently delete ALL leads from the database. Use this
+                    before a fresh pull from sheet.
+                  </p>
+                  {purgeResult && (
+                    <div className="mt-2 text-xs bg-red-100 rounded p-2">
+                      🗑️ Deleted <strong>{purgeResult.deleted}</strong> leads
+                      from database
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    setConfirmModal({
+                      open: true,
+                      title: "⚠️ Purge All Leads — Irreversible!",
+                      description:
+                        "This will PERMANENTLY DELETE every lead from the database. This action cannot be undone.",
+                      impact:
+                        "• ALL leads will be permanently deleted from the database.\n• Call records will be unlinked (not deleted) from leads.\n• WhatsApp conversations linked to leads will be deleted.\n• The Google Sheet is NOT affected — you can re-import with Pull.\n• Agent assignments and follow-up data on leads will be lost.",
+                      confirmLabel: "Delete All Leads",
+                      variant: "danger",
+                      onConfirm: runPurge,
+                    })
+                  }
+                  disabled={purgeLoading}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {purgeLoading ? "Deleting…" : "Purge All"}
+                </button>
+              </div>
             </div>
           )}
+
           {!sheetsStatus?.configured && (
             <p className="mt-3 text-xs text-gray-400">
               Set <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and{" "}
@@ -388,6 +581,63 @@ export default function AdminSettings() {
             </p>
           )}
         </div>
+
+        {/* Confirmation Modal */}
+        {confirmModal?.open && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <h3
+                className={`text-lg font-bold mb-2 ${
+                  confirmModal.variant === "danger"
+                    ? "text-red-700"
+                    : confirmModal.variant === "warning"
+                      ? "text-amber-700"
+                      : "text-blue-700"
+                }`}
+              >
+                {confirmModal.title}
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {confirmModal.description}
+              </p>
+              <div
+                className={`text-xs p-3 rounded-lg mb-4 whitespace-pre-line ${
+                  confirmModal.variant === "danger"
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : confirmModal.variant === "warning"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                      : "bg-blue-50 text-blue-700 border border-blue-200"
+                }`}
+              >
+                <p className="font-semibold mb-1">Impact:</p>
+                {confirmModal.impact}
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmModal(null)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmModal.onConfirm}
+                  disabled={pullLoading || syncLoading || purgeLoading}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-50 ${
+                    confirmModal.variant === "danger"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : confirmModal.variant === "warning"
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {pullLoading || syncLoading || purgeLoading
+                    ? "Processing…"
+                    : confirmModal.confirmLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -206,3 +206,36 @@ def bulk_sync(leads: list[Any]) -> int:
     except Exception as exc:
         logger.error("Google Sheets bulk sync failed: %s", exc)
         return 0
+
+
+def list_worksheets() -> list[str]:
+    """Return a list of worksheet tab names in the configured spreadsheet."""
+    try:
+        from app.core.config import settings
+        client = _get_client()
+        if not client or not settings.google_spreadsheet_id:
+            return []
+        spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
+        return [ws.title for ws in spreadsheet.worksheets()]
+    except Exception as exc:
+        logger.error("Failed to list worksheets: %s", exc)
+        return []
+
+
+def pull_leads_from_sheet(sheet_name: str) -> list[dict[str, str]]:
+    """
+    Read all rows from a specific worksheet tab and return them as a list of dicts.
+    The first row is treated as the header.
+    Returns an empty list on any error.
+    """
+    try:
+        from app.core.config import settings
+        client = _get_client()
+        if not client or not settings.google_spreadsheet_id:
+            return []
+        spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
+        ws = spreadsheet.worksheet(sheet_name)
+        return ws.get_all_records(expected_headers=[])
+    except Exception as exc:
+        logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc)
+        return []

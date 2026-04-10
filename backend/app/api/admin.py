@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_agent
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.models import Agent, AppSetting, CampaignKnowledge, Lead
+from app.models.models import Agent, AppSetting, CallRecord, CampaignKnowledge, Lead
 from app.services.aisensy import initiate_lead_campaign, sync_lead_whatsapp_state
-from app.services.google_sheets import bulk_sync as sheets_bulk_sync, get_auth_error as sheets_auth_error
+from app.services.google_sheets import bulk_sync as sheets_bulk_sync, get_auth_error as sheets_auth_error, list_worksheets as sheets_list_worksheets, pull_leads_from_sheet as sheets_pull_leads
 from app.services.phone_numbers import normalize_phone_number
 
 logger = logging.getLogger(__name__)
@@ -486,4 +486,147 @@ def update_source_sheet_name(
     """Update the source worksheet tab name (the tab Pabbly watches for inbound leads)."""
     settings.google_source_sheet_name = payload.value.strip()
     return {"source_sheet_name": settings.google_source_sheet_name}
+
+
+@router.get("/sheets/worksheets", tags=["admin"])
+def get_worksheets(agent: Agent = Depends(get_current_agent)):
+    """List all worksheet tab names in the configured Google Sheet."""
+    if not settings.use_google_sheets:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Sheets is not configured",
+        )
+    tabs = sheets_list_worksheets()
+    return {"worksheets": tabs}
+
+
+@router.post("/sheets/pull", tags=["admin"])
+def sheets_pull(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Pull leads from the source Google Sheet tab into the database.
+    Maps sheet columns to lead fields, deduplicates by phone, and creates new leads.
+    Does NOT delete existing leads — only adds/updates from the sheet.
+    """
+    if not settings.use_google_sheets:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Sheets is not configured",
+        )
+
+    sheet_name = settings.google_source_sheet_name or "Sheet1"
+    rows = sheets_pull_leads(sheet_name)
+    if not rows:
+        return {"created": 0, "updated": 0, "skipped": 0, "sheet_name": sheet_name, "total_rows": 0}
+
+    # Column mapping: sheet header → Lead model field
+    COLUMN_MAP = {
+        "name": "name",
+        "phone number": "phone",
+        "phone": "phone",
+        "email": "email",
+        "campaign": "source_campaign",
+        "source_campaign": "source_campaign",
+        "lead source": "ad_set",
+        "ad_set": "ad_set",
+        "ad set": "ad_set",
+        "lead temperature": "interest_level",
+        "interest level": "interest_level",
+        "course interested in": "course_interested_in",
+        "academy preference": "course_interested_in",
+        "status": "status",
+        "notes": "notes",
+        "detailed response": "notes",
+    }
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for row in rows:
+        # Normalize column names to lowercase for matching
+        mapped: dict[str, str] = {}
+        for col, val in row.items():
+            key = str(col).strip().lower()
+            if key in COLUMN_MAP:
+                field = COLUMN_MAP[key]
+                if val and str(val).strip() and field not in mapped:
+                    mapped[field] = str(val).strip()
+
+        phone = mapped.get("phone", "")
+        name = mapped.get("name", "")
+        if not phone or not name:
+            skipped += 1
+            continue
+
+        normalized = normalize_phone_number(phone, settings.aisensy_default_country_code)
+        if not normalized:
+            skipped += 1
+            continue
+
+        # Deduplicate by phone
+        existing = db.query(Lead).filter(Lead.phone == normalized).first()
+        if not existing:
+            # Also check suffix match
+            suffix = normalized[-10:]
+            existing = db.query(Lead).filter(Lead.phone.like(f"%{suffix}")).first()
+
+        if existing:
+            # Update if fields have values
+            for field in ("name", "email", "source_campaign", "ad_set", "interest_level", "course_interested_in"):
+                if mapped.get(field):
+                    setattr(existing, field, mapped[field])
+            existing.updated_at = _utcnow()
+            updated += 1
+        else:
+            lead = Lead(
+                name=name,
+                phone=normalized,
+                email=mapped.get("email"),
+                source_campaign=mapped.get("source_campaign"),
+                ad_set=mapped.get("ad_set"),
+                interest_level=mapped.get("interest_level"),
+                course_interested_in=mapped.get("course_interested_in"),
+                notes=mapped.get("notes"),
+                status=mapped.get("status", "new") if mapped.get("status") in (
+                    "new", "contacted", "in_progress", "qualified", "payment_sent", "converted", "lost", "deferred"
+                ) else "new",
+            )
+            db.add(lead)
+            created += 1
+
+    db.commit()
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "total_rows": len(rows),
+        "sheet_name": sheet_name,
+    }
+
+
+@router.delete("/leads/purge", tags=["admin"])
+def purge_all_leads(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Delete ALL leads from the database. This is irreversible.
+    Associated call records and follow-ups remain but become orphaned.
+    """
+    count = db.query(Lead).count()
+    # Delete all WhatsApp conversations and messages linked to leads first
+    from app.models.models import WhatsAppConversation, WhatsAppMessage
+    conv_ids = [c.id for c in db.query(WhatsAppConversation).all()]
+    if conv_ids:
+        db.query(WhatsAppMessage).filter(WhatsAppMessage.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+        db.query(WhatsAppConversation).delete(synchronize_session=False)
+    # Unlink call records from leads
+    db.query(CallRecord).filter(CallRecord.lead_id.isnot(None)).update({"lead_id": None}, synchronize_session=False)
+    # Delete all leads
+    db.query(Lead).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": count}
 

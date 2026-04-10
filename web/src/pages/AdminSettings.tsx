@@ -84,11 +84,12 @@ export default function AdminSettings() {
 
   const [pullLoading, setPullLoading] = useState(false);
   const [pullResult, setPullResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    total_rows: number;
-    sheet_name: string;
+    created?: number;
+    updated?: number;
+    skipped?: number;
+    total_rows?: number;
+    sheet_name?: string;
+    error?: string;
   } | null>(null);
 
   const [purgeLoading, setPurgeLoading] = useState(false);
@@ -163,6 +164,7 @@ export default function AdminSettings() {
           setPullLoading(false);
           setConfirmModal(null);
         } else if (res.data.status === "error") {
+          setPullResult({ error: res.data.detail || "Pull failed" });
           setPullLoading(false);
           setConfirmModal(null);
         } else {
@@ -480,13 +482,19 @@ export default function AdminSettings() {
                     new ones are created.
                   </p>
                   {pullResult && (
-                    <div className="mt-2 text-xs bg-blue-100 rounded p-2">
-                      ✅ From &quot;{pullResult.sheet_name}&quot;:{" "}
-                      <strong>{pullResult.created}</strong> created,{" "}
-                      <strong>{pullResult.updated}</strong> updated,{" "}
-                      <strong>{pullResult.skipped}</strong> skipped (of{" "}
-                      {pullResult.total_rows} rows)
-                    </div>
+                    pullResult.error ? (
+                      <div className="mt-2 text-xs bg-red-100 text-red-700 rounded p-2">
+                        ❌ {pullResult.error}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs bg-blue-100 rounded p-2">
+                        ✅ From &quot;{pullResult.sheet_name}&quot;:{" "}
+                        <strong>{pullResult.created}</strong> created,{" "}
+                        <strong>{pullResult.updated}</strong> updated,{" "}
+                        <strong>{pullResult.skipped}</strong> skipped (of{" "}
+                        {pullResult.total_rows} rows)
+                      </div>
+                    )
                   )}
                 </div>
                 <button

@@ -526,6 +526,7 @@ def _do_pull_leads(sheet_name: str):
     try:
         _set_setting(db, "_pull_status", json.dumps({
             "status": "running", "sheet_name": sheet_name,
+            "started_at": datetime.now(timezone.utc).isoformat(),
         }))
 
         rows = sheets_pull_leads(sheet_name)
@@ -643,6 +644,7 @@ def sheets_pull(
     sheet_name = _get_setting(db, "google_source_sheet_name", settings.google_source_sheet_name or "Sheet1") or "Sheet1"
     _set_setting(db, "_pull_status", json.dumps({
         "status": "running", "sheet_name": sheet_name,
+        "started_at": datetime.now(timezone.utc).isoformat(),
     }))
     bg.add_task(_do_pull_leads, sheet_name)
     return {"status": "started", "sheet_name": sheet_name}
@@ -653,14 +655,31 @@ def sheets_pull_status(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    """Return the current status of the last pull operation."""
+    """Return the current status of the last pull operation.
+    Auto-resets stale 'running' tasks older than 5 minutes."""
     raw = _get_setting(db, "_pull_status", "")
     if not raw:
         return {"status": "idle"}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError:
         return {"status": "idle"}
+
+    # Auto-reset stale running tasks (Render free tier may kill background tasks)
+    if data.get("status") == "running" and data.get("started_at"):
+        try:
+            started = datetime.fromisoformat(data["started_at"])
+            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+            if elapsed > 300:  # 5 minutes
+                data = {
+                    "status": "error",
+                    "detail": "Pull timed out — the server may have restarted. Please try again.",
+                }
+                _set_setting(db, "_pull_status", json.dumps(data))
+        except (ValueError, TypeError):
+            pass
+
+    return data
 
 
 @router.delete("/leads/purge", tags=["admin"])

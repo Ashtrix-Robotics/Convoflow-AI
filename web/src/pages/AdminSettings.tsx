@@ -481,8 +481,8 @@ export default function AdminSettings() {
                     Deduplicates by phone number — existing leads are updated,
                     new ones are created.
                   </p>
-                  {pullResult && (
-                    pullResult.error ? (
+                  {pullResult &&
+                    (pullResult.error ? (
                       <div className="mt-2 text-xs bg-red-100 text-red-700 rounded p-2">
                         ❌ {pullResult.error}
                       </div>
@@ -494,8 +494,7 @@ export default function AdminSettings() {
                         <strong>{pullResult.skipped}</strong> skipped (of{" "}
                         {pullResult.total_rows} rows)
                       </div>
-                    )
-                  )}
+                    ))}
                 </div>
                 <button
                   onClick={() =>

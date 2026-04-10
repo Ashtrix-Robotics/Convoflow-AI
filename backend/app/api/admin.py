@@ -666,18 +666,25 @@ def sheets_pull_status(
         return {"status": "idle"}
 
     # Auto-reset stale running tasks (Render free tier may kill background tasks)
-    if data.get("status") == "running" and data.get("started_at"):
-        try:
-            started = datetime.fromisoformat(data["started_at"])
-            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-            if elapsed > 300:  # 5 minutes
-                data = {
-                    "status": "error",
-                    "detail": "Pull timed out — the server may have restarted. Please try again.",
-                }
-                _set_setting(db, "_pull_status", json.dumps(data))
-        except (ValueError, TypeError):
-            pass
+    if data.get("status") == "running":
+        reset = False
+        if data.get("started_at"):
+            try:
+                started = datetime.fromisoformat(data["started_at"])
+                elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+                if elapsed > 300:  # 5 minutes
+                    reset = True
+            except (ValueError, TypeError):
+                reset = True  # unparseable timestamp → treat as stale
+        else:
+            reset = True  # no timestamp → legacy stale record
+
+        if reset:
+            data = {
+                "status": "error",
+                "detail": "Pull timed out — the server may have restarted. Please try again.",
+            }
+            _set_setting(db, "_pull_status", json.dumps(data))
 
     return data
 

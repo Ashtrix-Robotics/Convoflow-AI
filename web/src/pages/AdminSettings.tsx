@@ -283,7 +283,9 @@ export default function AdminSettings() {
         <div className="bg-white rounded-xl shadow-sm p-5 border border-green-200">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">📊</span>
-            <h3 className="font-bold text-gray-800 text-lg">Google Sheets Sync</h3>
+            <h3 className="font-bold text-gray-800 text-lg">
+              Google Sheets Sync
+            </h3>
             <span
               className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
                 sheetsStatus?.configured
@@ -296,7 +298,8 @@ export default function AdminSettings() {
           </div>
           <p className="text-sm text-gray-500 mb-4">
             Every lead create/update is synced to Google Sheets automatically.
-            Use this button to do a full bulk re-sync if the sheet gets out of date.
+            Use this button to do a full bulk re-sync if the sheet gets out of
+            date.
           </p>
           {sheetsStatus?.spreadsheet_url && (
             <a
@@ -317,14 +320,18 @@ export default function AdminSettings() {
           </button>
           {syncResult && (
             <div className="mt-3 text-sm bg-green-50 border border-green-200 rounded-lg p-3">
-              ✅ Synced <strong>{syncResult.rows_written}</strong> leads to sheet{" "}
-              <code className="text-xs text-gray-600">{syncResult.spreadsheet_id}</code>
+              ✅ Synced <strong>{syncResult.rows_written}</strong> leads to
+              sheet{" "}
+              <code className="text-xs text-gray-600">
+                {syncResult.spreadsheet_id}
+              </code>
             </div>
           )}
           {!sheetsStatus?.configured && (
             <p className="mt-3 text-xs text-gray-400">
               Set <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and{" "}
-              <code>GOOGLE_SPREADSHEET_ID</code> in your Render environment variables to enable.
+              <code>GOOGLE_SPREADSHEET_ID</code> in your Render environment
+              variables to enable.
             </p>
           )}
         </div>

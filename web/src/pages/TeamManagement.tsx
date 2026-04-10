@@ -55,7 +55,11 @@ export default function TeamManagement() {
   });
 
   const handleDelete = (agent: any) => {
-    if (window.confirm(`Permanently delete "${agent.name}"? This cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Permanently delete "${agent.name}"? This cannot be undone.`,
+      )
+    ) {
       deleteMutation.mutate(agent.id);
     }
   };
@@ -204,7 +208,7 @@ export default function TeamManagement() {
                       <button
                         onClick={() => handleDelete(agent)}
                         disabled={deleteMutation.isPending}
-                        className="text-gray-400 hover:text-red-700 text-sm ml-1" 
+                        className="text-gray-400 hover:text-red-700 text-sm ml-1"
                         title="Permanently delete"
                       >
                         🗑

@@ -17,6 +17,7 @@ Meta Ads → Google Sheet (30-col intake)
 ```
 
 **Two tabs exist in the spreadsheet:**
+
 1. **Source tab** (e.g. "Sheet1") — Where Meta leads land via Zapier/Pabbly/direct integration. Has ~30 columns.
 2. **"Convoflow Leads" tab** — Auto-created and managed by the app. Receives all lead data on create/update.
 
@@ -36,17 +37,18 @@ Batch Time, Campaign
 
 ### Column Mapping to LeadInbound API
 
-| Sheet Column       | API Field          | Notes                           |
-| ------------------ | ------------------ | ------------------------------- |
-| Name               | `name`             | Required                        |
-| Phone number       | `phone`            | Required — normalized to E.164  |
-| email              | `email`            | Optional                        |
-| Campaign           | `source_campaign`  | Maps to campaign tracking       |
-| Lead Source        | `ad_set`           | Can use for ad set tracking     |
-| Whatsapp Number    | `whatsapp_number`  | If different from phone         |
-| Lead Temperature   | `intent_category`  | hot/warm/cold                   |
+| Sheet Column     | API Field         | Notes                          |
+| ---------------- | ----------------- | ------------------------------ |
+| Name             | `name`            | Required                       |
+| Phone number     | `phone`           | Required — normalized to E.164 |
+| email            | `email`           | Optional                       |
+| Campaign         | `source_campaign` | Maps to campaign tracking      |
+| Lead Source      | `ad_set`          | Can use for ad set tracking    |
+| Whatsapp Number  | `whatsapp_number` | If different from phone        |
+| Lead Temperature | `intent_category` | hot/warm/cold                  |
 
 **Currently unused columns** that could be mapped later:
+
 - Child name, Grade, Academy Preference, Location/Area, Parent's Profession
 - These would require adding new fields to the Lead model if needed.
 
@@ -57,6 +59,7 @@ Batch Time, Campaign
 ### Step 1: Get the Production Google Sheet ID
 
 Open your production Google Sheet. The ID is in the URL:
+
 ```
 https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
 ```
@@ -64,6 +67,7 @@ https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
 ### Step 2: Share with Service Account
 
 Share the production sheet with the service account email (as **Editor**):
+
 ```
 convoflow-sheets@convoflow-ai-492912.iam.gserviceaccount.com
 ```
@@ -88,24 +92,26 @@ On your [Render dashboard](https://dashboard.render.com):
 > ⚠️ **Do NOT modify existing Pabbly workflows.** Create a new workflow or update the trigger configuration only.
 
 In Pabbly Connect:
+
 1. Open WF1 (the Google Sheets → Webhook workflow)
 2. Update the **Google Sheets trigger** to point to the new spreadsheet
 3. Select the correct worksheet tab
 4. Update field mappings:
 
-| Pabbly Field   | Sheet Column      |
-| -------------- | ----------------- |
-| name           | Name              |
-| phone          | Phone number      |
-| email          | email             |
-| source_campaign| Campaign          |
-| ad_set         | Lead Source        |
+| Pabbly Field    | Sheet Column |
+| --------------- | ------------ |
+| name            | Name         |
+| phone           | Phone number |
+| email           | email        |
+| source_campaign | Campaign     |
+| ad_set          | Lead Source  |
 
 5. Test the trigger to confirm it picks up new rows
 
 ### Step 6: Run Initial Bulk Sync
 
 After deployment:
+
 1. Go to **Admin Settings** → **Google Sheets Sync**
 2. Click **Bulk Sync All Leads → Sheet**
 3. This populates the "Convoflow Leads" tab in the new spreadsheet with all existing leads
@@ -121,17 +127,18 @@ After deployment:
 
 ## Environment Variables Reference
 
-| Variable                     | Description                                              |
-| ---------------------------- | -------------------------------------------------------- |
-| `GOOGLE_SERVICE_ACCOUNT_JSON`| Full JSON key content of the service account             |
-| `GOOGLE_SPREADSHEET_ID`     | The spreadsheet ID from the Google Sheets URL            |
-| `GOOGLE_SOURCE_SHEET_NAME`  | Tab name where inbound leads arrive (default: "Sheet1")  |
+| Variable                      | Description                                             |
+| ----------------------------- | ------------------------------------------------------- |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Full JSON key content of the service account            |
+| `GOOGLE_SPREADSHEET_ID`       | The spreadsheet ID from the Google Sheets URL           |
+| `GOOGLE_SOURCE_SHEET_NAME`    | Tab name where inbound leads arrive (default: "Sheet1") |
 
 ---
 
 ## Rollback
 
 To revert to the test sheet:
+
 1. Set `GOOGLE_SPREADSHEET_ID` back to the test sheet ID (`1cgzWHrIQwf_16qzAWkX5B8UniuQ9vPiBMJeuUOAk4lk`)
 2. Redeploy on Render
 3. Revert Pabbly WF1 trigger to the test sheet

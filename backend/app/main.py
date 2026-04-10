@@ -39,4 +39,4 @@ app.include_router(agents_admin.router)
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "Convoflow AI API", "version": "2"}
+    return {"status": "ok", "service": "Convoflow AI API", "version": "3"}

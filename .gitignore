@@ -80,6 +80,8 @@ secrets/
 *.pfx
 *.cert
 aws/ec2-info.txt
+**/google_sheets_env.json
+**/test_json_fix.py
 
 # ========================
 # Misc / Tests / Cache

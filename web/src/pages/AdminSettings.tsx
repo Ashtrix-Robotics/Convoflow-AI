@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import NavBar from "../components/NavBar";
+import { SettingsSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 const SETTING_LABELS: Record<
@@ -244,7 +245,7 @@ export default function AdminSettings() {
 
         {/* Toggles / Text settings */}
         {isLoading ? (
-          <div className="text-gray-400 text-sm">Loading settings…</div>
+          <SettingsSkeleton />
         ) : (
           <div className="space-y-4">
             {Object.entries(SETTING_LABELS).map(([key, meta]) => (

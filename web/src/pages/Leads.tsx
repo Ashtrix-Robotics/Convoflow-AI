@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import NavBar from "../components/NavBar";
+import { PipelineSkeleton, TableSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 const PIPELINE_COLUMNS = [
@@ -27,7 +28,6 @@ const INTENT_COLORS: Record<string, string> = {
 
 export default function Leads() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterIntent, setFilterIntent] = useState("");
   const [view, setView] = useState<"pipeline" | "list">("pipeline");
@@ -44,12 +44,6 @@ export default function Leads() {
           },
         })
         .then((r) => r.data),
-  });
-
-  const moveLead = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/leads/${id}`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leads"] }),
   });
 
   const grouped = PIPELINE_COLUMNS.map((col) => ({
@@ -100,9 +94,8 @@ export default function Leads() {
           </div>
         </div>
 
-        {isLoading && (
-          <p className="text-gray-400 text-center py-12">Loading leads…</p>
-        )}
+        {isLoading && view === "pipeline" && <PipelineSkeleton />}
+        {isLoading && view === "list" && <TableSkeleton />}
 
         {/* Pipeline view */}
         {!isLoading && view === "pipeline" && (

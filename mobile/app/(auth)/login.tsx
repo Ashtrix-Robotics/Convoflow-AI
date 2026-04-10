@@ -71,9 +71,6 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>Sign In</Text>
         )}
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-        <Text style={styles.link}>Don't have an account? Register</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -115,5 +112,4 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  link: { color: "#002147", textAlign: "center", marginTop: 16, fontSize: 14 },
 });

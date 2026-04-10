@@ -28,10 +28,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           echo "Triggering Render deploy via deploy hook..."
+          HOOK="${RENDER_DEPLOY_HOOK:-https://api.render.com/deploy/srv-d79547450q8c73fc78p0?key=XmaLT81Svl4}"
           HTTP_CODE=$(curl -s -o /tmp/render_response.txt -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
+            -X POST "$HOOK")
           cat /tmp/render_response.txt
           echo ""
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then

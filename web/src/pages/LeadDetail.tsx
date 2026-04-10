@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import NavBar from "../components/NavBar";
+import { DetailSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 const STATUS_OPTIONS = [
@@ -73,7 +74,10 @@ export default function LeadDetail() {
 
   if (isLoading)
     return (
-      <div className="flex justify-center py-20 text-gray-400">Loading…</div>
+      <div className="min-h-screen bg-gray-50">
+        <NavBar active="leads" />
+        <DetailSkeleton />
+      </div>
     );
   if (!lead)
     return (

@@ -17,6 +17,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import api from "../services/api";
+import { KpiSkeleton, ChartsSkeleton } from "../components/Skeleton";
 
 const PIE_COLORS = [
   "#10B981",
@@ -93,7 +94,8 @@ export default function Dashboard() {
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         {/* KPI cards */}
-        {analytics && (
+        {analyticsLoading && <KpiSkeleton />}
+        {!analyticsLoading && analytics && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-5">
               <p className="text-xs text-gray-400 uppercase tracking-wide">
@@ -131,7 +133,8 @@ export default function Dashboard() {
         )}
 
         {/* Charts row */}
-        {analytics && (
+        {analyticsLoading && <ChartsSkeleton />}
+        {!analyticsLoading && analytics && (
           <div className="grid md:grid-cols-2 gap-6">
             {/* Campaign breakdown */}
             {analytics.campaign_breakdown?.length > 0 && (
@@ -350,7 +353,16 @@ export default function Dashboard() {
         <div>
           <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Calls</h2>
 
-          {callsLoading && <p className="text-gray-500">Loading calls…</p>}
+          {callsLoading && (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl shadow-sm p-5 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                </div>
+              ))}
+            </div>
+          )}
 
           {!callsLoading && calls.length === 0 && (
             <div className="text-center py-12 text-gray-400">

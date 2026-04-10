@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import NavBar from "../components/NavBar";
+import { CampaignsSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 interface TemplateParam {
@@ -314,7 +315,7 @@ export default function CampaignKnowledge() {
 
         {/* Campaign list */}
         {isLoading ? (
-          <p className="text-gray-400 text-sm">Loading…</p>
+          <CampaignsSkeleton />
         ) : campaigns.length === 0 ? (
           <div className="space-y-5">
             <div className="bg-white rounded-xl shadow-sm p-6 text-center border border-dashed border-gray-200">

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import NavBar from "../components/NavBar";
+import { TeamSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 export default function TeamManagement() {
@@ -140,7 +141,7 @@ export default function TeamManagement() {
 
         <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
           {isLoading ? (
-            <p className="p-8 text-center text-gray-500">Loading agents...</p>
+            <TeamSkeleton />
           ) : isError ? (
             <p className="p-8 text-center text-red-500">
               Failed to load agents. The backend may still be deploying —

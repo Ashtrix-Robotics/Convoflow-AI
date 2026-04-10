@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import NavBar from "../components/NavBar";
+import { DetailSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
 export default function CallDetail() {
@@ -47,7 +48,10 @@ export default function CallDetail() {
 
   if (isLoading)
     return (
-      <div className="flex justify-center py-20 text-gray-400">Loading…</div>
+      <div className="min-h-screen bg-gray-50">
+        <NavBar active="dashboard" />
+        <DetailSkeleton />
+      </div>
     );
   if (!call)
     return (

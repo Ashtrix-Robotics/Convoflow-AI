@@ -473,10 +473,14 @@ def sheets_sync(
 
 
 @router.get("/sheets/status", tags=["admin"])
-def sheets_status(agent: Agent = Depends(get_current_agent)):
+def sheets_status(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
     """Returns whether Google Sheets sync is configured and any auth error."""
     configured = settings.use_google_sheets
     auth_error = sheets_auth_error()
+    source_name = _get_setting(db, "google_source_sheet_name", settings.google_source_sheet_name or "")
     return {
         "configured": configured,
         "spreadsheet_url": (
@@ -484,18 +488,22 @@ def sheets_status(agent: Agent = Depends(get_current_agent)):
             if configured else None
         ),
         "auth_error": auth_error or None,
-        "source_sheet_name": settings.google_source_sheet_name or "",
+        "source_sheet_name": source_name,
     }
 
 
 @router.put("/sheets/source-sheet", tags=["admin"])
 def update_source_sheet_name(
     payload: SettingUpdateIn,
+    db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
     """Update the source worksheet tab name (the tab Pabbly watches for inbound leads)."""
-    settings.google_source_sheet_name = payload.value.strip()
-    return {"source_sheet_name": settings.google_source_sheet_name}
+    value = payload.value.strip()
+    settings.google_source_sheet_name = value
+    _set_setting(db, "google_source_sheet_name", value,
+                 description="Source Google Sheet tab name", agent_id=agent.id)
+    return {"source_sheet_name": value}
 
 
 @router.get("/sheets/worksheets", tags=["admin"])
@@ -526,7 +534,7 @@ def sheets_pull(
             detail="Google Sheets is not configured",
         )
 
-    sheet_name = settings.google_source_sheet_name or "Sheet1"
+    sheet_name = _get_setting(db, "google_source_sheet_name", settings.google_source_sheet_name or "Sheet1") or "Sheet1"
     rows = sheets_pull_leads(sheet_name)
     if not rows:
         return {"created": 0, "updated": 0, "skipped": 0, "sheet_name": sheet_name, "total_rows": 0}

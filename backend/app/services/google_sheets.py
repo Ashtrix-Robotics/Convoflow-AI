@@ -256,13 +256,16 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
             if any(cell.strip() for cell in row)
         ]
 
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch)
-            return future.result(timeout=timeout_seconds)
+        future = executor.submit(_fetch)
+        return future.result(timeout=timeout_seconds)
     except concurrent.futures.TimeoutError:
         logger.error("Timed out pulling leads from sheet '%s' after %ds", sheet_name, timeout_seconds)
         raise TimeoutError(f"Google Sheets API timed out after {timeout_seconds}s for sheet '{sheet_name}'")
     except Exception as exc:
         logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc)
         return []
+    finally:
+        # shutdown(wait=False) so we don't block here if the fetch thread is stuck
+        executor.shutdown(wait=False)

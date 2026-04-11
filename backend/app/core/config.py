@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     # ---------------------------------------------------------------------------
     # CORS
     # ---------------------------------------------------------------------------
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://convoflow-web.vercel.app"
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://convoflow-web.vercel.app,https://convoflow.ashtrix.in"
 
     # ---------------------------------------------------------------------------
     # App meta

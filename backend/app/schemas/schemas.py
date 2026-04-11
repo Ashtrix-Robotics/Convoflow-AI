@@ -65,6 +65,10 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
 
 
+class SupabaseSessionIn(BaseModel):
+    supabase_token: str
+
+
 # ---------------------------------------------------------------------------
 # Client
 # ---------------------------------------------------------------------------

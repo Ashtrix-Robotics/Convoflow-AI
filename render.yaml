@@ -59,7 +59,7 @@ services:
       - key: JWT_ALGORITHM
         value: HS256
       - key: ALLOWED_ORIGINS
-        sync: false # e.g. https://convoflow-web.vercel.app,https://web-ashtrix.vercel.app
+        value: "https://convoflow-web.vercel.app,https://convoflow.ashtrix.in"
       # AiSensy WhatsApp integration
       - key: API_CAMPAIGN_KEY
         sync: false

@@ -228,7 +228,7 @@ export default function TeamManagement() {
           </div>
         )}
 
-        {/* -- Add Agent form -- */
+        {/* -- Add Agent form -- */}
         {showAdd && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
             <h3 className="font-semibold text-lg text-[#002147]">
@@ -290,7 +290,7 @@ export default function TeamManagement() {
           </div>
         )}
 
-        {/* -- Agents table -- */
+        {/* -- Agents table -- */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
           {isLoading ? (
             <TeamSkeleton />
@@ -386,7 +386,7 @@ export default function TeamManagement() {
         </div>
       </main>
 
-      {/* -- Edit Agent Modal -- */
+      {/* -- Edit Agent Modal -- */}
       {editState && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 px-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-5">
@@ -471,7 +471,7 @@ export default function TeamManagement() {
         </div>
       )}
 
-      {/* -- Delete Confirm Modal -- */
+      {/* -- Delete Confirm Modal -- */}
       {deleteConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 px-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">

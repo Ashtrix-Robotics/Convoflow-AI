@@ -267,8 +267,18 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
             "https://www.googleapis.com/auth/drive.file",
         ]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        # Refresh credentials to get a valid access token
-        creds.refresh(Request())
+        # Refresh credentials to get a valid access token.
+        # Wrap Request in a session with a 30s timeout — the default session
+        # has no timeout and can hang indefinitely on Render's free tier.
+        _session = requests.Session()
+        _session.verify = True
+
+        class _TimeoutRequest(Request):
+            """Force a 30s timeout on every HTTP call made during token refresh."""
+            def __call__(self, url, method="GET", body=None, headers=None, timeout=30, **kw):
+                return super().__call__(url, method=method, body=body, headers=headers, timeout=timeout, **kw)
+
+        creds.refresh(_TimeoutRequest(session=_session))
 
         encoded_sheet = urllib.parse.quote(sheet_name, safe="")
         url = (

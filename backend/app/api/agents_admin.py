@@ -103,12 +103,41 @@ def change_own_password(
     db: Session = Depends(get_db),
     current_agent: Agent = Depends(get_current_agent),
 ):
-    """Logged-in agent changes their own password (requires current password)."""
-    if not verify_password(payload.current_password, current_agent.hashed_password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    """Logged-in agent changes their own password (requires current password).
+
+    For accounts that have a platform hashed_password (created via API / mobile),
+    the current password is verified locally.  For Supabase-only accounts (web
+    admin created directly in Supabase dashboard) that have no hashed_password,
+    we verify via supabase.auth.sign_in_with_password instead.
+    """
+    if current_agent.hashed_password:
+        # Normal path — fast local bcrypt check
+        if not verify_password(payload.current_password, current_agent.hashed_password):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Current password is incorrect")
+    else:
+        # Supabase-only account (no platform password hash set yet)
+        if not settings.supabase_url or not settings.supabase_anon_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot verify current password — Supabase not configured on this server.",
+            )
+        try:
+            from supabase import create_client as _sc
+            sb_anon = _sc(settings.supabase_url, settings.supabase_anon_key)
+            sb_anon.auth.sign_in_with_password(
+                {"email": current_agent.email, "password": payload.current_password}
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+    # Update platform hash (also initialises it for Supabase-only accounts)
     current_agent.hashed_password = hash_password(payload.new_password)
     db.commit()
-    # Mirror to Supabase so web login keeps working
+    # Mirror to Supabase so web login also uses the new password
     _supabase_update_user(current_agent.supabase_uid or "", password=payload.new_password)
     return {"message": "Password updated successfully"}
 

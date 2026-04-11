@@ -235,18 +235,52 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
     Read all rows from a specific worksheet tab and return them as a list of dicts.
     The first row is treated as the header.
     Returns an empty list on any error.
-    Uses a thread-level timeout to prevent hanging on slow sheets.
+    Uses a direct HTTP call with an explicit timeout to avoid gspread hanging.
     """
     import concurrent.futures
 
     def _fetch():
         from app.core.config import settings
-        client = _get_client()
-        if not client or not settings.google_spreadsheet_id:
+        import requests
+        from google.oauth2.service_account import Credentials
+
+        if not settings.google_service_account_json or not settings.google_spreadsheet_id:
             return []
-        spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
-        ws = spreadsheet.worksheet(sheet_name)
-        all_values = ws.get_all_values()
+
+        raw = settings.google_service_account_json.strip()
+        try:
+            creds_dict = json.loads(raw)
+        except json.JSONDecodeError:
+            try:
+                creds_dict = json.loads(raw.replace('\\"', '"'))
+            except Exception:
+                return []
+
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive.file",
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        # Refresh credentials to get a valid access token
+        from google.auth.transport.requests import Request
+        creds.refresh(Request())
+
+        url = (
+            f"https://sheets.googleapis.com/v4/spreadsheets"
+            f"/{settings.google_spreadsheet_id}/values"
+            f"/{requests.utils.quote(sheet_name, safe='')}!A:Z"
+        )
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {creds.token}"},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        all_values = data.get("values", [])
         if not all_values:
             return []
         headers = [str(h).strip() for h in all_values[0]]

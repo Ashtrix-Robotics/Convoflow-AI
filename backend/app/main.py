@@ -81,4 +81,4 @@ app.include_router(agents_admin.router)  # has router-level auth
 @app.get("/health")
 @limiter.limit("30/minute")
 def health_check(request: Request):
-    return {"status": "ok", "service": "Convoflow AI API", "version": "3"}
+    return {"status": "ok", "service": "Convoflow AI API", "version": "4"}

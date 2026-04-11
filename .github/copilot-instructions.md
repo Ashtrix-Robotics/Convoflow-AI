@@ -149,6 +149,16 @@
 | **Mobile**  | `./start-mobile.ps1`                 | Runs Expo. Uses `--legacy-peer-deps` during install.         |
 | **Pabbly**  | `scripts/setup-pabbly-workflows.ps1` | Automates local webhook setup.                               |
 
+### Vercel Deployment
+
+- **CRITICAL**: The web dashboard MUST always deploy to the project named `convoflow-web` (team: `ashtrix`).
+- Vercel project ID: `prj_5RLQkJkv5MxcJbfXoLuuAsVIEb48` — hardcoded in the workflow and `deploy-web.ps1`.
+- Production URL: `https://convoflow.ashtrix.in`
+- The `VERCEL_ORG_ID` is always `team_5DFCjy6cGDgOt6V3nqdFLtDI`.
+- **Never** let the Vercel CLI create a new project — always set `VERCEL_PROJECT_ID` env var before running `vercel deploy`.
+- A stale project named `web` (ID `prj_cI6ARP2Os2995N9YgjNXPJNVw5BA`) was deleted on 2026-04-11. If it reappears, delete it immediately via `Invoke-RestMethod -Method DELETE -Uri "https://api.vercel.com/v9/projects/prj_cI6ARP2Os2995N9YgjNXPJNVw5BA?teamId=team_5DFCjy6cGDgOt6V3nqdFLtDI" -Headers @{ Authorization = "Bearer $VERCEL_TOKEN" }`.
+- To deploy manually: `.\deploy-web.ps1` (sets `VERCEL_PROJECT_ID` automatically).
+
 ### Database Management
 
 - Uses **SQLAlchemy 2.0** + **Alembic**.

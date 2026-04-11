@@ -40,7 +40,7 @@ def register(request: Request, agent_in: AgentCreate, db: Session = Depends(get_
 @limiter.limit("10/minute")
 def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     agent = db.query(Agent).filter(Agent.email == form.username).first()
-    if not agent or not verify_password(form.password, agent.hashed_password):
+    if not agent or not agent.is_active or not verify_password(form.password, agent.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )

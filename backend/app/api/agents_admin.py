@@ -122,12 +122,20 @@ def change_own_password(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Cannot verify current password — Supabase not configured on this server.",
             )
+        import httpx as _httpx
         try:
-            from supabase import create_client as _sc
-            sb_anon = _sc(settings.supabase_url, settings.supabase_anon_key)
-            sb_anon.auth.sign_in_with_password(
-                {"email": current_agent.email, "password": payload.current_password}
+            sb_resp = _httpx.post(
+                f"{settings.supabase_url}/auth/v1/token",
+                params={"grant_type": "password"},
+                json={"email": current_agent.email, "password": payload.current_password},
+                headers={
+                    "apikey": settings.supabase_anon_key,
+                    "Content-Type": "application/json",
+                },
+                timeout=15.0,
             )
+            if sb_resp.status_code != 200:
+                raise ValueError("Supabase auth rejected")
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -74,13 +74,12 @@ export default function Login() {
     }
   };
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  // -- Render ------------------------------------------------------------
   if (view === "forgot-sent") {
     return (
       <div className="min-h-screen bg-[#002147] flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center space-y-5">
-          <div className="text-5xl">ðŸ“§</div>
+          <div className="text-5xl">{"\u{1F4E7}"}</div>
           <h1 className="text-xl font-bold text-[#002147]">Check your inbox</h1>
           <p className="text-sm text-gray-500">
             We've sent a password reset link to{" "}
@@ -148,7 +147,7 @@ export default function Login() {
               disabled={forgotLoading}
               className="w-full bg-[#FF6600] text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition"
             >
-              {forgotLoading ? "Sendingâ€¦" : "Send Reset Link"}
+              {forgotLoading ? "Sending..." : "Send Reset Link"}
             </button>
           </form>
 
@@ -159,7 +158,7 @@ export default function Login() {
             }}
             className="mt-4 text-xs text-gray-400 hover:text-gray-600 w-full text-center block"
           >
-            â† Back to Login
+            {"\u2190"} Back to Login
           </button>
         </div>
       </div>
@@ -220,7 +219,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600] focus:border-transparent"
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="********"
             />
           </div>
           <button
@@ -228,7 +227,7 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-[#FF6600] text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition"
           >
-            {loading ? "Signing inâ€¦" : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 

@@ -594,12 +594,16 @@ def _do_pull_leads(sheet_name: str):
 
         for row_idx, row in enumerate(rows, start=2):  # row 1 = header
             mapped: dict[str, str] = {}
+            extra: dict[str, str] = {}  # columns not in COLUMN_MAP
             for col, val in row.items():
                 key = str(col).strip().lower()
                 if key in COLUMN_MAP:
                     field = COLUMN_MAP[key]
                     if val and str(val).strip() and field not in mapped:
                         mapped[field] = str(val).strip()
+                elif val and str(val).strip():
+                    # Store unmapped columns in extra_data using original header name
+                    extra[str(col).strip()] = str(val).strip()
 
             phone = mapped.get("phone", "").strip()
             name = mapped.get("name", "").strip()
@@ -630,6 +634,11 @@ def _do_pull_leads(sheet_name: str):
                               "interest_level", "course_interested_in", "notes"):
                     if mapped.get(field):
                         setattr(existing, field, mapped[field])
+                # Merge extra sheet columns into extra_data
+                if extra:
+                    current_extra = existing.extra_data or {}
+                    current_extra.update(extra)
+                    existing.extra_data = current_extra
                 existing.updated_at = _utcnow()
                 updated += 1
                 batch_leads[normalized] = existing  # future rows merge into same obj
@@ -643,6 +652,11 @@ def _do_pull_leads(sheet_name: str):
                               "interest_level", "course_interested_in", "notes"):
                     if mapped.get(field) and not getattr(lead_obj, field, None):
                         setattr(lead_obj, field, mapped[field])
+                # Merge extra columns
+                if extra:
+                    current_extra = lead_obj.extra_data or {}
+                    current_extra.update(extra)
+                    lead_obj.extra_data = current_extra
                 lead_obj.updated_at = _utcnow()
                 merged += 1
 
@@ -658,6 +672,7 @@ def _do_pull_leads(sheet_name: str):
                     interest_level=mapped.get("interest_level"),
                     course_interested_in=mapped.get("course_interested_in"),
                     notes=mapped.get("notes"),
+                    extra_data=extra if extra else {},
                     status=raw_status if raw_status in VALID_STATUSES else "new",
                 )
                 db.add(lead_obj)

@@ -228,7 +228,7 @@ export default function TeamManagement() {
           </div>
         )}
 
-        {/* â”€â”€ Add Agent form â”€â”€ */}
+        {/* -- Add Agent form -- */
         {showAdd && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
             <h3 className="font-semibold text-lg text-[#002147]">
@@ -275,7 +275,7 @@ export default function TeamManagement() {
                 disabled={createMutation.isPending}
                 className="bg-[#002147] text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-950 disabled:opacity-50 transition"
               >
-                {createMutation.isPending ? "Creatingâ€¦" : "Create Agent"}
+                {createMutation.isPending ? "Creating..." : "Create Agent"}
               </button>
               <button
                 onClick={() => {
@@ -290,13 +290,13 @@ export default function TeamManagement() {
           </div>
         )}
 
-        {/* â”€â”€ Agents table â”€â”€ */}
+        {/* -- Agents table -- */
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
           {isLoading ? (
             <TeamSkeleton />
           ) : isError ? (
             <p className="p-8 text-center text-red-500">
-              Failed to load agents. The backend may still be deploying â€”
+              Failed to load agents. The backend may still be deploying --
               refresh in a moment.
             </p>
           ) : !agents?.length ? (
@@ -374,7 +374,7 @@ export default function TeamManagement() {
                           className="text-sm text-gray-400 hover:text-red-600 transition"
                           title="Permanently delete"
                         >
-                          ðŸ—‘
+                          {"\u{1F5D1}"}
                         </button>
                       </div>
                     </td>
@@ -386,7 +386,7 @@ export default function TeamManagement() {
         </div>
       </main>
 
-      {/* â”€â”€ Edit Agent Modal â”€â”€ */}
+      {/* -- Edit Agent Modal -- */
       {editState && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 px-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-5">
@@ -399,7 +399,7 @@ export default function TeamManagement() {
                 }}
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none"
               >
-                Ã—
+                {"\u00D7"}
               </button>
             </div>
 
@@ -464,14 +464,14 @@ export default function TeamManagement() {
                 disabled={updateMutation.isPending}
                 className="bg-[#002147] text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-950 disabled:opacity-50 transition"
               >
-                {updateMutation.isPending ? "Savingâ€¦" : "Save Changes"}
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* â”€â”€ Delete Confirm Modal â”€â”€ */}
+      {/* -- Delete Confirm Modal -- */
       {deleteConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 px-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
@@ -497,7 +497,7 @@ export default function TeamManagement() {
                 disabled={deleteMutation.isPending}
                 className="bg-red-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition"
               >
-                {deleteMutation.isPending ? "Deletingâ€¦" : "Yes, Delete"}
+                {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
               </button>
             </div>
           </div>

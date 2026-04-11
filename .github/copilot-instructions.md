@@ -46,7 +46,7 @@
 | Auth       | Supabase Auth (web) → exchange for platform JWT via `/auth/supabase-session` |
 | Auth       | FastAPI JWT (mobile) — `/auth/login` with form credentials                   |
 | Automation | Pabbly Connect webhooks                                                      |
-| Web        | React 18, Vite 6, TanStack Query v5, Recharts, Tailwind CSS                 |
+| Web        | React 18, Vite 6, TanStack Query v5, Recharts, Tailwind CSS                  |
 
 ---
 
@@ -54,12 +54,13 @@
 
 **Architecture: Two models, two purposes — no fallbacks:**
 
-| Task | Service | Config Env Var | Default |
-|---|---|---|---|
-| Audio transcription | Groq Whisper | `GROQ_WHISPER_MODEL` | `whisper-large-v3-turbo` |
+| Task                                              | Service           | Config Env Var          | Default                  |
+| ------------------------------------------------- | ----------------- | ----------------------- | ------------------------ |
+| Audio transcription                               | Groq Whisper      | `GROQ_WHISPER_MODEL`    | `whisper-large-v3-turbo` |
 | All text tasks (intent extraction, summarization) | Vercel AI Gateway | `AI_GATEWAY_CHAT_MODEL` | `deepseek/deepseek-chat` |
 
 **To change the text LLM model** (no code change needed):
+
 1. Go to **Render Dashboard → convoflow-api service → Environment**
 2. Update `AI_GATEWAY_CHAT_MODEL` to any supported Vercel AI Gateway model:
    - `deepseek/deepseek-chat` — DeepSeek V3: best cost-to-performance, great for structured extraction
@@ -141,14 +142,15 @@
 
 ### Run Commands
 
-| Component | Command | Notes |
-| :--- | :--- | :--- |
-| **Backend** | `./start-backend.ps1` | Runs FastAPI on :8000. Uses `.venv` with `requirements.txt`. |
-| **Web** | `./start-web.ps1` | Runs Vite on :5173. Nuance: Proxies `/api` to :8000. |
-| **Mobile** | `./start-mobile.ps1` | Runs Expo. Uses `--legacy-peer-deps` during install. |
-| **Pabbly** | `scripts/setup-pabbly-workflows.ps1` | Automates local webhook setup. |
+| Component   | Command                              | Notes                                                        |
+| :---------- | :----------------------------------- | :----------------------------------------------------------- |
+| **Backend** | `./start-backend.ps1`                | Runs FastAPI on :8000. Uses `.venv` with `requirements.txt`. |
+| **Web**     | `./start-web.ps1`                    | Runs Vite on :5173. Nuance: Proxies `/api` to :8000.         |
+| **Mobile**  | `./start-mobile.ps1`                 | Runs Expo. Uses `--legacy-peer-deps` during install.         |
+| **Pabbly**  | `scripts/setup-pabbly-workflows.ps1` | Automates local webhook setup.                               |
 
 ### Database Management
+
 - Uses **SQLAlchemy 2.0** + **Alembic**.
 - Migration command: `alembic upgrade head` in [backend/](backend/).
 - **Production and local dev both use Supabase PostgreSQL.** `DATABASE_URL` must always be set.
@@ -215,18 +217,18 @@ EXPO_PUBLIC_API_URL=http://192.168.x.x:8000
 
 ## API Endpoint Summary
 
-| Method   | Path                          | Description                                |
-| -------- | ----------------------------- | ------------------------------------------ |
-| POST     | `/auth/register`              | Register new agent                         |
-| POST     | `/auth/login`                 | Get JWT token (OAuth2 form — mobile only)  |
-| POST     | `/auth/supabase-session`      | Exchange Supabase JWT for platform JWT (web) |
-| POST     | `/calls/upload`               | Upload audio file → start transcription    |
-| GET      | `/calls`                      | List agent's calls                         |
-| GET      | `/calls/{id}`                 | Get call status + results                  |
-| GET/POST | `/clients`                    | Client CRUD                                |
-| POST     | `/followups`                  | Create follow-up → fires Pabbly webhook    |
-| GET      | `/followups`                  | List follow-ups                            |
-| PATCH    | `/followups/{id}/complete`    | Mark follow-up as done                     |
+| Method   | Path                       | Description                                  |
+| -------- | -------------------------- | -------------------------------------------- |
+| POST     | `/auth/register`           | Register new agent                           |
+| POST     | `/auth/login`              | Get JWT token (OAuth2 form — mobile only)    |
+| POST     | `/auth/supabase-session`   | Exchange Supabase JWT for platform JWT (web) |
+| POST     | `/calls/upload`            | Upload audio file → start transcription      |
+| GET      | `/calls`                   | List agent's calls                           |
+| GET      | `/calls/{id}`              | Get call status + results                    |
+| GET/POST | `/clients`                 | Client CRUD                                  |
+| POST     | `/followups`               | Create follow-up → fires Pabbly webhook      |
+| GET      | `/followups`               | List follow-ups                              |
+| PATCH    | `/followups/{id}/complete` | Mark follow-up as done                       |
 
 ---
 
@@ -255,19 +257,23 @@ The Pabbly service (`backend/app/services/pabbly.py`) signs all payloads with HM
 ## Lessons Learned & Corrections (Updated During Development)
 
 ### Database
+
 - **Production DB is PostgreSQL (Supabase), NOT SQLite.** `psycopg2` is the adapter. SQLite is only used for local dev when `DATABASE_URL` is not set. Never assume SQLite-specific behavior (e.g. `check_same_thread`) in production code paths.
 - **PostgreSQL enforces constraints at `flush()` time inside a transaction**, not just at `commit()`. Adding multiple ORM objects with the same unique-constrained field value to a SQLAlchemy session (without flushing between each) will fail on `commit()` with `IntegrityError / UniqueViolation`.
 - **Always flush or track in-memory** when doing bulk inserts where duplicates may appear in the same batch — do not rely on `db.query()` to find rows you just `db.add()`-ed but haven't committed yet.
 
 ### Background Tasks (FastAPI / Starlette)
+
 - **Starlette `BackgroundTasks` for long-running sync functions can behave unpredictably** in some deployment environments. For operations that take >5s (like Google Sheets pulls), use `threading.Thread(target=fn, daemon=True)` directly instead of `bg.add_task()`.
 - **Daemon threads are required** when background work could outlast the request cycle. Non-daemon threads prevent Python from exiting cleanly during Render deploys (SIGTERM is ignored until all threads finish), blocking the deployment pipeline.
 
 ### Google Sheets / External HTTP
+
 - **Always set explicit timeouts on ALL HTTP calls**, including OAuth token refresh. `google.auth.transport.requests.Request()` uses a plain `requests.Session` with no default timeout — it will hang forever on Render's free tier if network connectivity is degraded.
 - **gspread's `get_all_records()` / `get_all_values()` can hang indefinitely** on Render's Singapore region. Use the direct Google Sheets REST API v4 (`requests.get(url, timeout=60)`) instead of gspread for read operations.
 
 ### Duplicate Data / Business Logic
+
 - **"Duplicate phone" doesn't always mean "duplicate person."** A parent enrolling two children may use the same phone for both rows. Never silently discard a row just because the phone already exists. Instead:
   - If the phone is already in the DB → update the existing lead's fields.
   - If the phone appeared earlier in the same import batch → merge non-empty fields into the same lead object.
@@ -275,11 +281,13 @@ The Pabbly service (`backend/app/services/pabbly.py`) signs all payloads with HM
 - **Never silently drop data** — every skipped row must be accounted for in the API response/logs with a reason (missing name, missing phone, unparseable phone, etc.).
 
 ### Frontend / UX
+
 - **Render free tier has 15-min inactivity spin-down.** Cold starts take 30–60s. The frontend must detect 502/503/network errors on GET requests, show a "Server is starting up…" banner, and auto-retry — never just show a blank error screen.
 - **Only auto-retry safe (GET/HEAD) requests** during cold-start. Never auto-retry POST/PATCH/DELETE (mutations may have already executed server-side).
 - **After any bulk operation (purge, pull, push)**, invalidate ALL related TanStack Query keys that could be stale — not just the most obvious one. E.g. purge invalidates `["leads"]`, `["calls"]`, AND `["analytics"]`.
 
 ### Render Deployment
+
 - **Render deploy hook URL**: `https://api.render.com/deploy/srv-d79547450q8c73fc78p0?key=XmaLT81Svl4`
 - **Version field in `/health`** is the canonical way to confirm which code is deployed.
 - When deploys are stuck (process won't exit), it's almost always due to non-daemon threads holding open HTTP connections. Fix: use `daemon=True` on all background threads.

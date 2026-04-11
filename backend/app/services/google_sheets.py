@@ -239,7 +239,15 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
             return []
         spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
         ws = spreadsheet.worksheet(sheet_name)
-        return ws.get_all_records(expected_headers=[])
+        all_values = ws.get_all_values()
+        if not all_values:
+            return []
+        headers = [str(h).strip() for h in all_values[0]]
+        return [
+            {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
+            for row in all_values[1:]
+            if any(cell.strip() for cell in row)
+        ]
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:

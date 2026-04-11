@@ -222,13 +222,16 @@ def list_worksheets() -> list[str]:
         return []
 
 
-def pull_leads_from_sheet(sheet_name: str) -> list[dict[str, str]]:
+def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[dict[str, str]]:
     """
     Read all rows from a specific worksheet tab and return them as a list of dicts.
     The first row is treated as the header.
     Returns an empty list on any error.
+    Uses a thread-level timeout to prevent hanging on slow sheets.
     """
-    try:
+    import concurrent.futures
+
+    def _fetch():
         from app.core.config import settings
         client = _get_client()
         if not client or not settings.google_spreadsheet_id:
@@ -236,6 +239,14 @@ def pull_leads_from_sheet(sheet_name: str) -> list[dict[str, str]]:
         spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
         ws = spreadsheet.worksheet(sheet_name)
         return ws.get_all_records(expected_headers=[])
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch)
+            return future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError:
+        logger.error("Timed out pulling leads from sheet '%s' after %ds", sheet_name, timeout_seconds)
+        raise TimeoutError(f"Google Sheets API timed out after {timeout_seconds}s for sheet '{sheet_name}'")
     except Exception as exc:
         logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc)
         return []

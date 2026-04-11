@@ -82,6 +82,13 @@ def _get_client():
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
+        # Set a 60-second per-request timeout so that individual HTTP calls
+        # (get_all_values, etc.) never hang indefinitely.
+        # gspread Client.set_timeout() was added in v5.x and is present in 6.1.4.
+        try:
+            client.set_timeout(60)
+        except Exception:
+            pass  # best-effort — don't break auth if this fails
         _client = client
         _last_auth_error = ""
         return _client

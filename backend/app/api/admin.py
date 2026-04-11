@@ -575,13 +575,24 @@ def _do_pull_leads(sheet_name: str):
 
         created = 0
         updated = 0
+        merged = 0   # same phone appeared multiple times in the sheet
         skipped = 0
-        # Track phones processed in this batch so duplicate sheet rows
-        # don't cause a UniqueViolation on commit (DB query won't see
-        # pending-but-uncommitted rows added earlier in the same loop).
-        seen_phones: set[str] = set()
+        skip_reasons: list[str] = []
 
-        for row in rows:
+        # Map normalized phone → Lead ORM object for leads created during this
+        # batch but not yet committed.  PostgreSQL won't find them via .query()
+        # until after commit, so we must track them ourselves.
+        # This also handles the "same parent, multiple children" case — the
+        # second sheet row for the same phone merges its non-empty fields into
+        # the existing pending Lead rather than creating a duplicate.
+        batch_leads: dict[str, Lead] = {}
+
+        VALID_STATUSES = {
+            "new", "contacted", "in_progress", "qualified",
+            "payment_sent", "converted", "lost", "deferred",
+        }
+
+        for row_idx, row in enumerate(rows, start=2):  # row 1 = header
             mapped: dict[str, str] = {}
             for col, val in row.items():
                 key = str(col).strip().lower()
@@ -590,36 +601,55 @@ def _do_pull_leads(sheet_name: str):
                     if val and str(val).strip() and field not in mapped:
                         mapped[field] = str(val).strip()
 
-            phone = mapped.get("phone", "")
-            name = mapped.get("name", "")
-            if not phone or not name:
+            phone = mapped.get("phone", "").strip()
+            name = mapped.get("name", "").strip()
+            if not name:
                 skipped += 1
+                skip_reasons.append(f"row {row_idx}: missing name")
+                continue
+            if not phone:
+                skipped += 1
+                skip_reasons.append(f"row {row_idx}: missing phone (name={name!r})")
                 continue
 
             normalized = normalize_phone_number(phone, settings.aisensy_default_country_code)
             if not normalized:
                 skipped += 1
+                skip_reasons.append(f"row {row_idx}: unparseable phone {phone!r} (name={name!r})")
                 continue
 
-            # Skip duplicates within the same batch
-            if normalized in seen_phones:
-                skipped += 1
-                continue
-            seen_phones.add(normalized)
-
-            existing = db.query(Lead).filter(Lead.phone == normalized).first()
+            # --- Resolve the lead object: DB first, then this batch, then new ---
+            existing: Lead | None = db.query(Lead).filter(Lead.phone == normalized).first()
             if not existing:
                 suffix = normalized[-10:]
                 existing = db.query(Lead).filter(Lead.phone.like(f"%{suffix}")).first()
 
             if existing:
-                for field in ("name", "email", "source_campaign", "ad_set", "interest_level", "course_interested_in"):
+                # Phone is already in the database — merge non-empty fields
+                for field in ("name", "email", "source_campaign", "ad_set",
+                              "interest_level", "course_interested_in", "notes"):
                     if mapped.get(field):
                         setattr(existing, field, mapped[field])
                 existing.updated_at = _utcnow()
                 updated += 1
+                batch_leads[normalized] = existing  # future rows merge into same obj
+
+            elif normalized in batch_leads:
+                # Same phone appeared earlier in THIS sheet (e.g. same parent,
+                # different child row).  Merge non-empty fields — do not create
+                # a second lead, which would violate the unique phone constraint.
+                lead_obj = batch_leads[normalized]
+                for field in ("email", "source_campaign", "ad_set",
+                              "interest_level", "course_interested_in", "notes"):
+                    if mapped.get(field) and not getattr(lead_obj, field, None):
+                        setattr(lead_obj, field, mapped[field])
+                lead_obj.updated_at = _utcnow()
+                merged += 1
+
             else:
-                lead = Lead(
+                # Brand-new lead
+                raw_status = mapped.get("status", "")
+                lead_obj = Lead(
                     name=name,
                     phone=normalized,
                     email=mapped.get("email"),
@@ -628,17 +658,22 @@ def _do_pull_leads(sheet_name: str):
                     interest_level=mapped.get("interest_level"),
                     course_interested_in=mapped.get("course_interested_in"),
                     notes=mapped.get("notes"),
-                    status=mapped.get("status", "new") if mapped.get("status") in (
-                        "new", "contacted", "in_progress", "qualified", "payment_sent", "converted", "lost", "deferred"
-                    ) else "new",
+                    status=raw_status if raw_status in VALID_STATUSES else "new",
                 )
-                db.add(lead)
+                db.add(lead_obj)
+                batch_leads[normalized] = lead_obj
                 created += 1
 
         db.commit()
         _set_setting(db, "_pull_status", json.dumps({
-            "status": "done", "created": created, "updated": updated,
-            "skipped": skipped, "total_rows": len(rows), "sheet_name": sheet_name,
+            "status": "done",
+            "created": created,
+            "updated": updated,
+            "merged": merged,
+            "skipped": skipped,
+            "skip_reasons": skip_reasons[:20],  # first 20 reasons to keep payload small
+            "total_rows": len(rows),
+            "sheet_name": sheet_name,
         }))
     except Exception as exc:
         logger.exception("sheets pull failed")

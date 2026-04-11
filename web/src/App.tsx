@@ -7,6 +7,7 @@ import LeadDetail from "./pages/LeadDetail";
 import AdminSettings from "./pages/AdminSettings";
 import TeamManagement from "./pages/TeamManagement";
 import CampaignKnowledge from "./pages/CampaignKnowledge";
+import ServerWakeUp from "./components/ServerWakeUp";
 import { TOKEN_KEY } from "./config";
 
 const isAuthenticated = () => !!localStorage.getItem(TOKEN_KEY);
@@ -17,7 +18,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      {/* Global cold-start banner — visible on any page */}
+      <ServerWakeUp />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
@@ -77,5 +81,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

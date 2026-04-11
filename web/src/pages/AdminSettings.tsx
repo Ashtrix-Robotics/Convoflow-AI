@@ -86,7 +86,9 @@ export default function AdminSettings() {
   const [pullResult, setPullResult] = useState<{
     created?: number;
     updated?: number;
+    merged?: number;
     skipped?: number;
+    skip_reasons?: string[];
     total_rows?: number;
     sheet_name?: string;
     error?: string;
@@ -490,12 +492,28 @@ export default function AdminSettings() {
                         ❌ {pullResult.error}
                       </div>
                     ) : (
-                      <div className="mt-2 text-xs bg-blue-100 rounded p-2">
-                        ✅ From &quot;{pullResult.sheet_name}&quot;:{" "}
-                        <strong>{pullResult.created}</strong> created,{" "}
-                        <strong>{pullResult.updated}</strong> updated,{" "}
-                        <strong>{pullResult.skipped}</strong> skipped (of{" "}
-                        {pullResult.total_rows} rows)
+                      <div className="mt-2 text-xs bg-blue-100 rounded p-2 space-y-1">
+                        <p>✅ From &quot;{pullResult.sheet_name}&quot; ({pullResult.total_rows} rows)</p>
+                        <p>📥 <strong>{pullResult.created}</strong> new leads created</p>
+                        <p>🔄 <strong>{pullResult.updated}</strong> existing leads updated</p>
+                        {(pullResult.merged ?? 0) > 0 && (
+                          <p>🔗 <strong>{pullResult.merged}</strong> same-phone rows merged (e.g. same parent, multiple children)</p>
+                        )}
+                        {(pullResult.skipped ?? 0) > 0 && (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-yellow-700 font-medium">
+                              ⚠️ {pullResult.skipped} rows skipped (missing name/phone or bad format) — click to expand
+                            </summary>
+                            <ul className="mt-1 ml-3 space-y-0.5 text-yellow-800">
+                              {(pullResult.skip_reasons ?? []).map((r, i) => (
+                                <li key={i}>• {r}</li>
+                              ))}
+                              {(pullResult.skipped ?? 0) > (pullResult.skip_reasons?.length ?? 0) && (
+                                <li className="text-gray-500">… and {(pullResult.skipped ?? 0) - (pullResult.skip_reasons?.length ?? 0)} more</li>
+                              )}
+                            </ul>
+                          </details>
+                        )}
                       </div>
                     ))}
                 </div>

@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     # ---------------------------------------------------------------------------
     app_title: str = "Convoflow AI API — EduTech Edition"
     app_description: str = "Backend for call transcription, lead intent classification, and Pabbly automation."
-    app_version: str = "1.0.0"
+    app_version: str = "12.0.0"
 
     # ---------------------------------------------------------------------------
     # Google Sheets — lead sync

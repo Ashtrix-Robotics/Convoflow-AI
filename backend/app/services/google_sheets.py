@@ -81,7 +81,10 @@ def _get_client():
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        _client = gspread.authorize(creds)
+        client = gspread.authorize(creds)
+        # Set a 90-second timeout on all HTTP requests to prevent indefinite hangs
+        client.session.timeout = 90
+        _client = client
         _last_auth_error = ""
         return _client
     except Exception as exc:

@@ -22,65 +22,65 @@ export default function App() {
       {/* Global cold-start banner — visible on any page */}
       <ServerWakeUp />
       <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/leads"
-        element={
-          <ProtectedRoute>
-            <Leads />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/leads/:id"
-        element={
-          <ProtectedRoute>
-            <LeadDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/calls/:id"
-        element={
-          <ProtectedRoute>
-            <CallDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute>
-            <AdminSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/team"
-        element={
-          <ProtectedRoute>
-            <TeamManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/campaigns"
-        element={
-          <ProtectedRoute>
-            <CampaignKnowledge />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leads"
+          element={
+            <ProtectedRoute>
+              <Leads />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leads/:id"
+          element={
+            <ProtectedRoute>
+              <LeadDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calls/:id"
+          element={
+            <ProtectedRoute>
+              <CallDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute>
+              <AdminSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/team"
+          element={
+            <ProtectedRoute>
+              <TeamManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/campaigns"
+          element={
+            <ProtectedRoute>
+              <CampaignKnowledge />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </>
   );
 }

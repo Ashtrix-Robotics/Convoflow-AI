@@ -26,7 +26,7 @@ function isColdStart(error: unknown): boolean {
   return [502, 503, 504].includes(error.response.status);
 }
 
-const COLD_START_MAX_RETRIES = 6;    // up to ~60 s of retries
+const COLD_START_MAX_RETRIES = 6; // up to ~60 s of retries
 const COLD_START_RETRY_DELAY_MS = 10_000;
 
 api.interceptors.response.use(
@@ -44,7 +44,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const cfg = error.config as (typeof error.config & { _retryCount?: number });
+    const cfg = error.config as typeof error.config & { _retryCount?: number };
 
     // Retry on cold-start signals only — never retry mutations that already
     // succeeded partially (POST/PATCH/DELETE) to avoid double-submit.
@@ -65,6 +65,5 @@ api.interceptors.response.use(
 );
 
 export default api;
-
 
 export default api;

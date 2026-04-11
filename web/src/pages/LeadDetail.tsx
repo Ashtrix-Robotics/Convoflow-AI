@@ -191,6 +191,26 @@ export default function LeadDetail() {
             </div>
           )}
 
+          {lead.extra_data && Object.keys(lead.extra_data).length > 0 && (
+            <div className="mt-6 border-t border-gray-100 pt-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+                Campaign Context
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                {Object.entries(lead.extra_data).map(([key, val]) => (
+                  <div key={key}>
+                    <p className="text-xs text-gray-500 font-medium">{key}</p>
+                    <p className="text-sm text-gray-800 break-words">
+                      {typeof val === "object"
+                        ? JSON.stringify(val)
+                        : String(val)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mt-6 border-t pt-4 flex items-center justify-between">
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide">

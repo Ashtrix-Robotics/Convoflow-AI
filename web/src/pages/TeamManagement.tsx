@@ -62,7 +62,9 @@ function FieldRow({
     <div>
       <label className="block text-xs font-semibold text-gray-500 mb-1">
         {label}
-        {optional && <span className="font-normal text-gray-400"> (optional)</span>}
+        {optional && (
+          <span className="font-normal text-gray-400"> (optional)</span>
+        )}
       </label>
       <input
         type={type}
@@ -96,7 +98,11 @@ export default function TeamManagement() {
     setTimeout(() => setSuccessMsg(""), 3500);
   };
 
-  const { data: agents, isLoading, isError } = useQuery<Agent[]>({
+  const {
+    data: agents,
+    isLoading,
+    isError,
+  } = useQuery<Agent[]>({
     queryKey: ["agents"],
     queryFn: async () => {
       const res = await api.get("/agents/");
@@ -197,13 +203,19 @@ export default function TeamManagement() {
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6 flex-1 w-full">
         <header className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-[#002147]">Team Management</h2>
+            <h2 className="text-2xl font-bold text-[#002147]">
+              Team Management
+            </h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              Create agents, edit their details, reset passwords, or suspend access.
+              Create agents, edit their details, reset passwords, or suspend
+              access.
             </p>
           </div>
           <button
-            onClick={() => { setShowAdd(true); setAddError(""); }}
+            onClick={() => {
+              setShowAdd(true);
+              setAddError("");
+            }}
             className="bg-[#FF6600] text-white px-4 py-2 rounded-lg shadow-sm hover:bg-orange-600 transition text-sm font-semibold"
           >
             + Add Agent
@@ -219,7 +231,9 @@ export default function TeamManagement() {
         {/* â”€â”€ Add Agent form â”€â”€ */}
         {showAdd && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
-            <h3 className="font-semibold text-lg text-[#002147]">Create New Sales Agent</h3>
+            <h3 className="font-semibold text-lg text-[#002147]">
+              Create New Sales Agent
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FieldRow
                 label="Full Name"
@@ -246,15 +260,15 @@ export default function TeamManagement() {
               <FieldRow
                 label="Confirm Password"
                 value={addState.confirmPassword}
-                onChange={(v) => setAddState({ ...addState, confirmPassword: v })}
+                onChange={(v) =>
+                  setAddState({ ...addState, confirmPassword: v })
+                }
                 type="password"
                 placeholder="Re-enter password"
                 autoComplete="new-password"
               />
             </div>
-            {addError && (
-              <p className="text-red-600 text-sm">{addError}</p>
-            )}
+            {addError && <p className="text-red-600 text-sm">{addError}</p>}
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleAddSubmit}
@@ -264,7 +278,10 @@ export default function TeamManagement() {
                 {createMutation.isPending ? "Creatingâ€¦" : "Create Agent"}
               </button>
               <button
-                onClick={() => { setShowAdd(false); setAddError(""); }}
+                onClick={() => {
+                  setShowAdd(false);
+                  setAddError("");
+                }}
                 className="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm"
               >
                 Cancel
@@ -279,25 +296,43 @@ export default function TeamManagement() {
             <TeamSkeleton />
           ) : isError ? (
             <p className="p-8 text-center text-red-500">
-              Failed to load agents. The backend may still be deploying â€” refresh in a moment.
+              Failed to load agents. The backend may still be deploying â€”
+              refresh in a moment.
             </p>
           ) : !agents?.length ? (
-            <p className="p-8 text-center text-gray-400 italic">No agents yet.</p>
+            <p className="p-8 text-center text-gray-400 italic">
+              No agents yet.
+            </p>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Actions</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Name
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Email
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {agents.map((agent) => (
-                  <tr key={agent.id} className="hover:bg-gray-50 transition border-b last:border-0">
-                    <td className="px-5 py-3.5 font-medium text-gray-800">{agent.name}</td>
-                    <td className="px-5 py-3.5 text-gray-500 text-sm">{agent.email}</td>
+                  <tr
+                    key={agent.id}
+                    className="hover:bg-gray-50 transition border-b last:border-0"
+                  >
+                    <td className="px-5 py-3.5 font-medium text-gray-800">
+                      {agent.name}
+                    </td>
+                    <td className="px-5 py-3.5 text-gray-500 text-sm">
+                      {agent.email}
+                    </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge active={agent.is_active !== false} />
                     </td>
@@ -312,7 +347,10 @@ export default function TeamManagement() {
                         {agent.is_active !== false ? (
                           <button
                             onClick={() =>
-                              updateMutation.mutate({ id: agent.id, data: { is_active: false } })
+                              updateMutation.mutate({
+                                id: agent.id,
+                                data: { is_active: false },
+                              })
                             }
                             className="text-sm text-amber-600 hover:text-amber-700 font-medium transition"
                           >
@@ -321,7 +359,10 @@ export default function TeamManagement() {
                         ) : (
                           <button
                             onClick={() =>
-                              updateMutation.mutate({ id: agent.id, data: { is_active: true } })
+                              updateMutation.mutate({
+                                id: agent.id,
+                                data: { is_active: true },
+                              })
                             }
                             className="text-sm text-green-600 hover:text-green-700 font-medium transition"
                           >
@@ -352,7 +393,10 @@ export default function TeamManagement() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-[#002147]">Edit Agent</h3>
               <button
-                onClick={() => { setEditState(null); setEditError(""); }}
+                onClick={() => {
+                  setEditState(null);
+                  setEditError("");
+                }}
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none"
               >
                 Ã—
@@ -373,12 +417,16 @@ export default function TeamManagement() {
                 autoComplete="off"
               />
               <div className="border-t border-gray-100 pt-3">
-                <p className="text-xs text-gray-400 mb-3">Leave password fields blank to keep the current password.</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  Leave password fields blank to keep the current password.
+                </p>
                 <div className="space-y-3">
                   <FieldRow
                     label="New Password"
                     value={editState.password}
-                    onChange={(v) => setEditState({ ...editState, password: v })}
+                    onChange={(v) =>
+                      setEditState({ ...editState, password: v })
+                    }
                     type="password"
                     placeholder="Min 8 characters"
                     optional
@@ -387,7 +435,9 @@ export default function TeamManagement() {
                   <FieldRow
                     label="Confirm New Password"
                     value={editState.confirmPassword}
-                    onChange={(v) => setEditState({ ...editState, confirmPassword: v })}
+                    onChange={(v) =>
+                      setEditState({ ...editState, confirmPassword: v })
+                    }
                     type="password"
                     placeholder="Re-enter new password"
                     optional
@@ -397,13 +447,14 @@ export default function TeamManagement() {
               </div>
             </div>
 
-            {editError && (
-              <p className="text-red-600 text-sm">{editError}</p>
-            )}
+            {editError && <p className="text-red-600 text-sm">{editError}</p>}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
               <button
-                onClick={() => { setEditState(null); setEditError(""); }}
+                onClick={() => {
+                  setEditState(null);
+                  setEditError("");
+                }}
                 className="text-gray-500 hover:text-gray-700 text-sm px-3 py-2"
               >
                 Cancel
@@ -426,12 +477,14 @@ export default function TeamManagement() {
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
             <h3 className="text-lg font-bold text-red-600">Delete Agent?</h3>
             <p className="text-sm text-gray-700">
-              Permanently delete <strong>{deleteConfirm.name}</strong>{" "}
-              (<span className="font-mono text-xs">{deleteConfirm.email}</span>)?{" "}
-              This removes their platform account, Supabase login, and all call records.
-              Leads they were assigned will become unassigned.
+              Permanently delete <strong>{deleteConfirm.name}</strong> (
+              <span className="font-mono text-xs">{deleteConfirm.email}</span>)?{" "}
+              This removes their platform account, Supabase login, and all call
+              records. Leads they were assigned will become unassigned.
             </p>
-            <p className="text-xs text-red-500 font-medium">This action cannot be undone.</p>
+            <p className="text-xs text-red-500 font-medium">
+              This action cannot be undone.
+            </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setDeleteConfirm(null)}

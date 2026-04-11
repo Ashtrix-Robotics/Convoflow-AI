@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -98,6 +98,7 @@ class Lead(Base):
     interest_level: Mapped[Optional[str]] = mapped_column(String(20))       # high|medium|low|none
     course_interested_in: Mapped[Optional[str]] = mapped_column(String(255))
     objections: Mapped[Optional[str]] = mapped_column(Text)                # JSON array stored as text
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)

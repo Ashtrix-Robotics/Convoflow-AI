@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +95,8 @@ class ClientOut(ClientCreate):
 
 class LeadInbound(BaseModel):
     """Payload received from Pabbly when a new Google Sheets row is added."""
+    model_config = ConfigDict(extra="allow")
+
     name: str
     phone: str
     email: str | None = None
@@ -110,6 +112,7 @@ class LeadCreate(BaseModel):
     source_campaign: str | None = None
     ad_set: str | None = None
     notes: str | None = None
+    extra_data: dict | None = None
 
 
 class LeadUpdate(BaseModel):
@@ -118,6 +121,7 @@ class LeadUpdate(BaseModel):
     status: LeadStatus | None = None
     intent_category: IntentCategory | None = None
     notes: str | None = None
+    extra_data: dict | None = None
     callback_scheduled_at: datetime | None = None
     next_followup_at: datetime | None = None
     course_interested_in: str | None = None
@@ -147,6 +151,7 @@ class LeadOut(BaseModel):
     course_interested_in: str | None
     objections: str | None
     notes: str | None
+    extra_data: dict | None = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 

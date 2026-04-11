@@ -134,8 +134,16 @@ export default function LeadDetailScreen() {
         {lead.notes && <Text style={styles.detail}>Notes: {lead.notes}</Text>}
       </View>
 
-      {/* Call History */}
-      {calls.length > 0 && (
+        {lead.extra_data && Object.keys(lead.extra_data).length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Campaign Context</Text>
+            {Object.entries(lead.extra_data).map(([key, val]) => (
+              <Text key={key} style={styles.detail}>
+                <Text style={{ fontWeight: "600" }}>{key}:</Text> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+              </Text>
+            ))}
+          </View>
+        )}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Call History</Text>
           {calls.map((call: any) => (

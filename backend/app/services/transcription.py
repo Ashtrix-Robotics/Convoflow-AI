@@ -73,7 +73,7 @@ def _get_llm_client() -> tuple[openai.AsyncOpenAI, str, float]:
 # Public API
 # ---------------------------------------------------------------------------
 
-async def transcribe_audio(audio_file_path: str) -> dict:
+async def transcribe_audio(audio_file_path: str, lead_context: dict | None = None) -> dict:
     """
     Transcribe an audio file then run EduTech intent classification.
     Returns transcription text + structured insights dict.
@@ -97,7 +97,7 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     logger.info("Transcription complete, %d chars", len(raw_text))
 
     # ---- 2. Text → EduTech insights via Vercel AI Gateway ------------------
-    insights = await extract_edutech_insights(raw_text)
+    insights = await extract_edutech_insights(raw_text, lead_context)
 
     return {
         "transcription": raw_text,
@@ -105,7 +105,7 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     }
 
 
-async def extract_edutech_insights(transcription: str) -> dict:
+async def extract_edutech_insights(transcription: str, lead_context: dict | None = None) -> dict:
     """
     Use Vercel AI Gateway (AI_GATEWAY_CHAT_MODEL) to analyse a sales call
     transcription and return structured EduTech intent data used to drive
@@ -114,10 +114,21 @@ async def extract_edutech_insights(transcription: str) -> dict:
     llm_client, llm_model, temperature = _get_llm_client()
     logger.info("Extracting insights with model=%s", llm_model)
 
+    context_block = ""
+    if lead_context:
+        import json
+        context_block = f"""
+Lead Context (Campaign Data / Extra Info):
+---
+{json.dumps(lead_context, indent=2)}
+---
+"""
+
     prompt = f"""You are an expert EduTech sales intelligence assistant.
 Analyze the following sales call transcription between a sales agent and a lead
 (prospective student or parent) about summer camp and online/offline classes.
 
+{context_block}
 Transcription:
 ---
 {transcription}

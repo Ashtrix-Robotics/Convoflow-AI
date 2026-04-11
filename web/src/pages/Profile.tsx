@@ -16,18 +16,16 @@ export default function Profile() {
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () =>
-      api
-        .get("/auth/me")
-        .then(
-          (r) =>
-            r.data as {
-              id: string;
-              name: string;
-              email: string;
-              is_active: boolean;
-              created_at: string;
-            },
-        ),
+      api.get("/auth/me").then(
+        (r) =>
+          r.data as {
+            id: string;
+            name: string;
+            email: string;
+            is_active: boolean;
+            created_at: string;
+          },
+      ),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

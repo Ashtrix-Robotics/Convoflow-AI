@@ -142,7 +142,7 @@ async def link_call_to_lead(
     call.lead_id = lead.id
 
     if call.status == "completed" and call.transcription:
-        insights = await extract_edutech_insights(call.transcription)
+        insights = await extract_edutech_insights(call.transcription, lead.extra_data)
         if not call.summary:
             call.summary = insights["summary"]
         if not call.action_items:
@@ -224,9 +224,16 @@ async def _process_transcription(call_id: str, audio_bytes: bytes, ext: str):
 
     tmp_path: str | None = None
     try:
+        # Build lead context for AI if a lead is linked
+        lead_context = None
+        if call.lead_id:
+            lead = db.query(Lead).filter(Lead.id == call.lead_id).first()
+            if lead and lead.extra_data:
+                lead_context = lead.extra_data
+
         # Write bytes to a local temp file for the STT API
         tmp_path = get_local_temp_path(audio_bytes, ext)
-        result = await transcribe_audio(tmp_path)
+        result = await transcribe_audio(tmp_path, lead_context)
 
         # ---- Update CallRecord -------------------------------------------------
         call.transcription = result["transcription"]

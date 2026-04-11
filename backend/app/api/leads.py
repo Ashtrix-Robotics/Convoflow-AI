@@ -87,6 +87,13 @@ async def inbound_lead(
             existing.source_campaign = lead_in.source_campaign
         if lead_in.google_sheet_row_id:
             existing.google_sheet_row_id = lead_in.google_sheet_row_id
+        
+        # Merge extra payload columns into extra_data
+        if hasattr(lead_in, "model_extra") and lead_in.model_extra:
+            current_extra = existing.extra_data or {}
+            current_extra.update(lead_in.model_extra)
+            existing.extra_data = current_extra
+
         existing.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(existing)
@@ -110,6 +117,9 @@ async def inbound_lead(
             key=lambda aid: count_map.get(aid, 0),
         )
 
+    # Initialize extra_data if there are extra columns
+    extra_data = lead_in.model_extra if hasattr(lead_in, "model_extra") and lead_in.model_extra else {}
+
     lead = Lead(
         name=lead_in.name,
         phone=normalized_phone,
@@ -117,6 +127,7 @@ async def inbound_lead(
         source_campaign=lead_in.source_campaign,
         ad_set=lead_in.ad_set,
         google_sheet_row_id=lead_in.google_sheet_row_id,
+        extra_data=extra_data,
         assigned_agent_id=assigned_agent_id,
         status="new",
         intent_category="new",

@@ -262,6 +262,9 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
         return future.result(timeout=timeout_seconds)
     except concurrent.futures.TimeoutError:
         logger.error("Timed out pulling leads from sheet '%s' after %ds", sheet_name, timeout_seconds)
+        # Invalidate the cached client — its TCP connection may be in a broken state.
+        global _client
+        _client = None
         raise TimeoutError(f"Google Sheets API timed out after {timeout_seconds}s for sheet '{sheet_name}'")
     except Exception as exc:
         logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc)

@@ -10,7 +10,7 @@ from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.models import Agent, CallRecord, Lead
+from app.models.models import Agent, CallRecord, Lead, WhatsAppConversation
 from app.schemas.schemas import AnalyticsOverview
 from app.api.deps import get_current_agent
 
@@ -60,6 +60,15 @@ def get_overview(
                 db.query(func.count(Lead.id))
                 .filter(Lead.source_campaign == campaign, Lead.status == "converted")
                 .scalar() or 0
+            ),
+            "conversion_rate": round(
+                (
+                    (db.query(func.count(Lead.id))
+                     .filter(Lead.source_campaign == campaign, Lead.status == "converted")
+                     .scalar() or 0)
+                    / cnt * 100
+                ) if cnt > 0 else 0.0,
+                1,
             ),
         }
         for campaign, cnt in leads_by_campaign.items()
@@ -160,4 +169,83 @@ def get_overview(
         total_conversions=total_conversions,
         conversion_rate=round(conversion_rate, 1),
         agent_stats=agent_stats,
+        stale_leads_count=_count_stale_leads(db, today),
+        followups_due_today=_count_followups_due_today(db, today),
+        leads_without_contact=_count_leads_without_contact(db),
+        whatsapp_active_count=_count_whatsapp_active(db),
+        avg_followup_count=_avg_followup_count(db),
+        status_funnel=_build_status_funnel(leads_by_status, total_leads),
     )
+
+
+# ---------------------------------------------------------------------------
+# Enhanced analytics helpers
+# ---------------------------------------------------------------------------
+
+def _count_stale_leads(db: Session, today: datetime) -> int:
+    """Leads in new/contacted status last updated > 7 days ago (not acted on)."""
+    cutoff = today - timedelta(days=7)
+    return (
+        db.query(func.count(Lead.id))
+        .filter(
+            Lead.status.in_(["new", "contacted"]),
+            Lead.updated_at < cutoff,
+        )
+        .scalar() or 0
+    )
+
+
+def _count_followups_due_today(db: Session, today: datetime) -> int:
+    """Leads with next_followup_at between start and end of today."""
+    day_end = today + timedelta(days=1)
+    return (
+        db.query(func.count(Lead.id))
+        .filter(
+            Lead.next_followup_at >= today,
+            Lead.next_followup_at < day_end,
+        )
+        .scalar() or 0
+    )
+
+
+def _count_leads_without_contact(db: Session) -> int:
+    """New leads that have never been contacted (last_contacted_at is NULL)."""
+    return (
+        db.query(func.count(Lead.id))
+        .filter(Lead.status == "new", Lead.last_contacted_at.is_(None))
+        .scalar() or 0
+    )
+
+
+def _count_whatsapp_active(db: Session) -> int:
+    """WhatsApp conversations that are currently active (not closed, not opted out)."""
+    try:
+        return (
+            db.query(func.count(WhatsAppConversation.id))
+            .filter(
+                WhatsAppConversation.is_closed.is_(False),
+                WhatsAppConversation.opted_out.is_(False),
+            )
+            .scalar() or 0
+        )
+    except Exception:
+        return 0
+
+
+def _avg_followup_count(db: Session) -> float:
+    """Average number of follow-up attempts across all leads."""
+    result = db.query(func.avg(Lead.followup_count)).scalar()
+    return round(float(result), 1) if result else 0.0
+
+
+def _build_status_funnel(leads_by_status: dict[str, int], total: int) -> list[dict]:
+    """Build an ordered pipeline funnel: new → contacted → qualified → payment_sent → converted → lost."""
+    stages = ["new", "contacted", "qualified", "payment_sent", "converted", "lost"]
+    return [
+        {
+            "stage": stage,
+            "count": leads_by_status.get(stage, 0),
+            "pct": round(leads_by_status.get(stage, 0) / total * 100, 1) if total > 0 else 0.0,
+        }
+        for stage in stages
+    ]

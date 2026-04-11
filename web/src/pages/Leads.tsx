@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import NavBar from "../components/NavBar";
 import { PipelineSkeleton, TableSkeleton } from "../components/Skeleton";
 import api from "../services/api";
@@ -14,6 +14,13 @@ const PIPELINE_COLUMNS = [
   { key: "converted", label: "Converted", color: "bg-green-500" },
   { key: "lost", label: "Lost", color: "bg-red-500" },
 ] as const;
+
+const LEAD_STATUSES = ["new", "contacted", "qualified", "payment_sent", "converted", "lost"];
+const INTENT_CATEGORIES = [
+  "new", "interested", "callback_requested", "payment_pending",
+  "not_interested", "no_answer", "future_planning", "converted",
+  "wrong_number", "undecided",
+];
 
 const INTENT_COLORS: Record<string, string> = {
   interested: "bg-green-100 text-green-700",
@@ -28,9 +35,19 @@ const INTENT_COLORS: Record<string, string> = {
 
 export default function Leads() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterIntent, setFilterIntent] = useState("");
   const [view, setView] = useState<"pipeline" | "list">("pipeline");
+
+  // Bulk selection state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState("");
+  const [bulkStatus, setBulkStatus] = useState("");
+  const [bulkIntent, setBulkIntent] = useState("");
+  const [bulkAgentId, setBulkAgentId] = useState("");
+  const [bulkMsg, setBulkMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["leads", search, filterIntent],
@@ -40,11 +57,69 @@ export default function Leads() {
           params: {
             search: search || undefined,
             intent_category: filterIntent || undefined,
-            limit: 200,
+            limit: 500,
           },
         })
         .then((r) => r.data),
   });
+
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => api.get("/auth/agents").then((r) => r.data).catch(() => []),
+  });
+
+  const bulkMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      api.post("/leads/bulk", payload).then((r) => r.data),
+    onSuccess: (result) => {
+      const acted = (result.updated || 0) + (result.deleted || 0);
+      setBulkMsg({ type: "success", text: `Done: ${acted} lead(s) updated${result.failed ? `, ${result.failed} failed` : ""}.` });
+      setSelected(new Set());
+      setBulkAction("");
+      setBulkStatus("");
+      setBulkIntent("");
+      setBulkAgentId("");
+      setConfirmDelete(false);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+      setTimeout(() => setBulkMsg(null), 5000);
+    },
+    onError: (err: any) => {
+      setBulkMsg({ type: "error", text: err?.response?.data?.detail ?? "Bulk action failed." });
+    },
+  });
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    if (selected.size === leads.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(leads.map((l: any) => l.id)));
+    }
+  }, [leads, selected.size]);
+
+  const runBulk = () => {
+    if (!bulkAction || selected.size === 0) return;
+    if (bulkAction === "delete" && !confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    const payload: Record<string, unknown> = {
+      lead_ids: Array.from(selected),
+      action: bulkAction,
+    };
+    if (bulkAction === "change_status") payload.status = bulkStatus;
+    if (bulkAction === "change_intent") payload.intent_category = bulkIntent;
+    if (bulkAction === "assign") payload.agent_id = bulkAgentId;
+    bulkMutation.mutate(payload);
+  };
 
   const grouped = PIPELINE_COLUMNS.map((col) => ({
     ...col,
@@ -57,7 +132,7 @@ export default function Leads() {
 
       <main className="px-4 py-6">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 max-w-7xl mx-auto">
+        <div className="flex flex-wrap items-center gap-3 mb-4 max-w-7xl mx-auto">
           <input
             type="text"
             placeholder="Search leads…"
@@ -80,7 +155,7 @@ export default function Leads() {
           </select>
           <div className="ml-auto flex gap-1 bg-gray-200 rounded-lg p-0.5">
             <button
-              onClick={() => setView("pipeline")}
+              onClick={() => { setView("pipeline"); setSelected(new Set()); }}
               className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${view === "pipeline" ? "bg-white shadow text-gray-800" : "text-gray-500"}`}
             >
               Pipeline
@@ -93,6 +168,107 @@ export default function Leads() {
             </button>
           </div>
         </div>
+
+        {/* Bulk Action Bar — appears when list view & any selected */}
+        {view === "list" && selected.size > 0 && (
+          <div className="max-w-7xl mx-auto mb-3">
+            <div className="bg-[#002147] text-white rounded-xl px-5 py-3 flex flex-wrap items-center gap-3 shadow-md">
+              <span className="text-sm font-semibold">
+                {selected.size} lead{selected.size !== 1 ? "s" : ""} selected
+              </span>
+              <select
+                value={bulkAction}
+                onChange={(e) => { setBulkAction(e.target.value); setConfirmDelete(false); }}
+                className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+              >
+                <option value="">Choose action…</option>
+                <option value="change_status">Change Status</option>
+                <option value="change_intent">Change Intent</option>
+                <option value="assign">Assign Agent</option>
+                <option value="delete">Delete</option>
+              </select>
+
+              {bulkAction === "change_status" && (
+                <select
+                  value={bulkStatus}
+                  onChange={(e) => setBulkStatus(e.target.value)}
+                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                >
+                  <option value="">Select status…</option>
+                  {LEAD_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                  ))}
+                </select>
+              )}
+
+              {bulkAction === "change_intent" && (
+                <select
+                  value={bulkIntent}
+                  onChange={(e) => setBulkIntent(e.target.value)}
+                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                >
+                  <option value="">Select intent…</option>
+                  {INTENT_CATEGORIES.map((i) => (
+                    <option key={i} value={i}>{i.replace(/_/g, " ")}</option>
+                  ))}
+                </select>
+              )}
+
+              {bulkAction === "assign" && agents.length > 0 && (
+                <select
+                  value={bulkAgentId}
+                  onChange={(e) => setBulkAgentId(e.target.value)}
+                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                >
+                  <option value="">Select agent…</option>
+                  {agents.map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {bulkAction === "delete" && confirmDelete && (
+                <span className="text-red-300 text-xs font-medium">
+                  ⚠ This will permanently delete {selected.size} lead(s). Click Delete to confirm.
+                </span>
+              )}
+
+              <button
+                onClick={runBulk}
+                disabled={bulkMutation.isPending || !bulkAction}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
+                  bulkAction === "delete"
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : "bg-[#FF6600] hover:bg-orange-600 text-white"
+                } disabled:opacity-50`}
+              >
+                {bulkMutation.isPending
+                  ? "Processing…"
+                  : bulkAction === "delete"
+                  ? confirmDelete ? "✓ Delete" : "Delete"
+                  : "Apply"}
+              </button>
+
+              <button
+                onClick={() => { setSelected(new Set()); setBulkAction(""); setConfirmDelete(false); }}
+                className="ml-auto text-white/60 hover:text-white text-xs"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Row feedback */}
+            {bulkMsg && (
+              <div
+                className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                  bulkMsg.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                }`}
+              >
+                {bulkMsg.text}
+              </div>
+            )}
+          </div>
+        )}
 
         {isLoading && view === "pipeline" && <PipelineSkeleton />}
         {isLoading && view === "list" && <TableSkeleton />}
@@ -161,10 +337,19 @@ export default function Leads() {
 
         {/* List view */}
         {!isLoading && view === "list" && (
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <table className="w-full bg-white rounded-xl shadow-sm overflow-hidden">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
                 <tr>
+                  <th className="px-4 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={leads.length > 0 && selected.size === leads.length}
+                      onChange={toggleAll}
+                      className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      title="Select all"
+                    />
+                  </th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Phone</th>
                   <th className="px-4 py-3">Status</th>
@@ -177,15 +362,23 @@ export default function Leads() {
                 {leads.map((lead: any) => (
                   <tr
                     key={lead.id}
-                    onClick={() => navigate(`/leads/${lead.id}`)}
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(lead.id)}
+                        onChange={() => toggleSelect(lead.id)}
+                        className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      />
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm font-medium text-gray-800 cursor-pointer"
+                      onClick={() => navigate(`/leads/${lead.id}`)}
+                    >
                       {lead.name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {lead.phone}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{lead.phone}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
                         {lead.status?.replace(/_/g, " ")}
@@ -216,6 +409,11 @@ export default function Leads() {
             </table>
             {leads.length === 0 && (
               <p className="text-gray-400 text-center py-12">No leads found</p>
+            )}
+            {leads.length > 0 && (
+              <p className="text-xs text-gray-400 mt-2 text-right">
+                {leads.length} leads · Switch to List view to use bulk operations
+              </p>
             )}
           </div>
         )}

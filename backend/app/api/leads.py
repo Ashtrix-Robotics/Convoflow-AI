@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.models import Agent, CallRecord, Lead
-from app.schemas.schemas import LeadCreate, LeadInbound, LeadOut, LeadUpdate
+from app.schemas.schemas import BulkLeadAction, BulkLeadResult, LeadCreate, LeadInbound, LeadOut, LeadUpdate
 from app.api.deps import get_current_agent
 from app.services.aisensy import sync_lead_whatsapp_state
 from app.services.google_sheets import upsert_lead as sheets_upsert
@@ -309,3 +309,106 @@ async def mark_no_answer(
     })
 
     return lead
+
+
+# ---------------------------------------------------------------------------
+# Bulk Operations
+# ---------------------------------------------------------------------------
+
+@router.post("/bulk", response_model=BulkLeadResult)
+def bulk_lead_action(
+    payload: BulkLeadAction,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Perform a bulk operation on a list of leads.
+
+    Actions:
+    - change_status  — set ``status`` field on all specified leads
+    - change_intent  — set ``intent_category`` on all specified leads
+    - assign         — re-assign leads to another agent (``agent_id`` required)
+    - delete         — hard-delete leads (also removes CallRecords & FollowUps)
+    """
+    if not payload.lead_ids:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="lead_ids must not be empty")
+
+    MAX_BULK = 500
+    if len(payload.lead_ids) > MAX_BULK:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Bulk limit is {MAX_BULK} leads per request",
+        )
+
+    updated = 0
+    deleted = 0
+    failed = 0
+    errors: list[str] = []
+    now = datetime.now(timezone.utc)
+
+    if payload.action == "change_status":
+        if not payload.status:
+            raise HTTPException(status_code=422, detail="'status' is required for change_status action")
+        for lead_id in payload.lead_ids:
+            lead = db.query(Lead).filter(Lead.id == lead_id).first()
+            if not lead:
+                failed += 1
+                errors.append(f"{lead_id}: not found")
+                continue
+            lead.status = payload.status.value if hasattr(payload.status, "value") else payload.status
+            lead.updated_at = now
+            updated += 1
+
+    elif payload.action == "change_intent":
+        if not payload.intent_category:
+            raise HTTPException(status_code=422, detail="'intent_category' is required for change_intent action")
+        for lead_id in payload.lead_ids:
+            lead = db.query(Lead).filter(Lead.id == lead_id).first()
+            if not lead:
+                failed += 1
+                errors.append(f"{lead_id}: not found")
+                continue
+            lead.intent_category = payload.intent_category.value if hasattr(payload.intent_category, "value") else payload.intent_category
+            lead.updated_at = now
+            updated += 1
+
+    elif payload.action == "assign":
+        if not payload.agent_id:
+            raise HTTPException(status_code=422, detail="'agent_id' is required for assign action")
+        target_agent = db.query(Agent).filter(Agent.id == payload.agent_id, Agent.is_active.is_(True)).first()
+        if not target_agent:
+            raise HTTPException(status_code=404, detail="Target agent not found or inactive")
+        for lead_id in payload.lead_ids:
+            lead = db.query(Lead).filter(Lead.id == lead_id).first()
+            if not lead:
+                failed += 1
+                errors.append(f"{lead_id}: not found")
+                continue
+            lead.assigned_agent_id = payload.agent_id
+            lead.updated_at = now
+            updated += 1
+
+    elif payload.action == "delete":
+        from app.models.models import FollowUp, WhatsAppConversation, WhatsAppMessage
+        for lead_id in payload.lead_ids:
+            lead = db.query(Lead).filter(Lead.id == lead_id).first()
+            if not lead:
+                failed += 1
+                errors.append(f"{lead_id}: not found")
+                continue
+            # Cascade delete related records
+            conv = db.query(WhatsAppConversation).filter(WhatsAppConversation.lead_id == lead_id).first()
+            if conv:
+                db.query(WhatsAppMessage).filter(WhatsAppMessage.conversation_id == conv.id).delete()
+                db.delete(conv)
+            for call in db.query(CallRecord).filter(CallRecord.lead_id == lead_id).all():
+                db.query(FollowUp).filter(FollowUp.call_id == call.id).delete()
+                db.delete(call)
+            db.delete(lead)
+            deleted += 1
+
+    else:
+        raise HTTPException(status_code=422, detail=f"Unknown action '{payload.action}'")
+
+    db.commit()
+    return BulkLeadResult(updated=updated, deleted=deleted, failed=failed, errors=errors)

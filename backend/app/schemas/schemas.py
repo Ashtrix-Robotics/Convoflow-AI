@@ -268,10 +268,36 @@ class AnalyticsOverview(BaseModel):
     leads_by_intent: dict[str, int]
     leads_by_campaign: dict[str, int]
     # Array versions of the dicts above — pre-shaped for chart consumption
-    campaign_breakdown: list[dict] = []   # [{campaign, leads, converted}, ...]
+    campaign_breakdown: list[dict] = []   # [{campaign, leads, converted, conversion_rate}, ...]
     intent_distribution: list[dict] = []  # [{intent, count}, ...]
     daily_stats: list[dict] = []          # [{date, new_leads, calls_made, conversions}, ...]
     total_calls_today: int
     total_conversions: int
     conversion_rate: float
     agent_stats: list[dict]
+    # Enhanced analytics fields
+    stale_leads_count: int = 0           # Leads not contacted in 7+ days (status=new/contacted)
+    followups_due_today: int = 0         # Leads with next_followup_at == today
+    leads_without_contact: int = 0       # New leads never contacted
+    whatsapp_active_count: int = 0       # Active WhatsApp conversations
+    avg_followup_count: float = 0.0      # Avg followup_count across all leads
+    status_funnel: list[dict] = []       # [{stage, count, pct}] ordered pipeline stages
+
+
+# ---------------------------------------------------------------------------
+# Bulk Lead Operations
+# ---------------------------------------------------------------------------
+
+class BulkLeadAction(BaseModel):
+    lead_ids: list[str]
+    action: str                          # "change_status"|"change_intent"|"assign"|"delete"
+    status: LeadStatus | None = None
+    intent_category: IntentCategory | None = None
+    agent_id: str | None = None
+
+
+class BulkLeadResult(BaseModel):
+    updated: int
+    deleted: int
+    failed: int
+    errors: list[str] = []

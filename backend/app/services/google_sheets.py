@@ -235,14 +235,17 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
     Read all rows from a specific worksheet tab and return them as a list of dicts.
     The first row is treated as the header.
     Returns an empty list on any error.
-    Uses a direct HTTP call with an explicit timeout to avoid gspread hanging.
+    Uses a direct HTTP REST call with an explicit 60s timeout.
+    Runs in a daemon thread so Python can exit cleanly if the request hangs.
     """
-    import concurrent.futures
+    import threading
+    import urllib.parse
 
     def _fetch():
         from app.core.config import settings
         import requests
         from google.oauth2.service_account import Credentials
+        from google.auth.transport.requests import Request
 
         if not settings.google_service_account_json or not settings.google_spreadsheet_id:
             return []
@@ -265,13 +268,12 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
         ]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         # Refresh credentials to get a valid access token
-        from google.auth.transport.requests import Request
         creds.refresh(Request())
 
+        encoded_sheet = urllib.parse.quote(sheet_name, safe="")
         url = (
             f"https://sheets.googleapis.com/v4/spreadsheets"
-            f"/{settings.google_spreadsheet_id}/values"
-            f"/{requests.utils.quote(sheet_name, safe='')}!A:Z"
+            f"/{settings.google_spreadsheet_id}/values/{encoded_sheet}!A:Z"
         )
         resp = requests.get(
             url,
@@ -290,19 +292,28 @@ def pull_leads_from_sheet(sheet_name: str, timeout_seconds: int = 120) -> list[d
             if any(cell.strip() for cell in row)
         ]
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    try:
-        future = executor.submit(_fetch)
-        return future.result(timeout=timeout_seconds)
-    except concurrent.futures.TimeoutError:
+    result_container: list = [None]
+    exc_container: list = [None]
+
+    def _run():
+        try:
+            result_container[0] = _fetch()
+        except Exception as e:
+            exc_container[0] = e
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=timeout_seconds)
+
+    if t.is_alive():
         logger.error("Timed out pulling leads from sheet '%s' after %ds", sheet_name, timeout_seconds)
-        # Invalidate the cached client — its TCP connection may be in a broken state.
+        # Invalidate the cached gspread client — its TCP connection may be in a broken state.
         global _client
         _client = None
         raise TimeoutError(f"Google Sheets API timed out after {timeout_seconds}s for sheet '{sheet_name}'")
-    except Exception as exc:
-        logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc)
+
+    if exc_container[0] is not None:
+        logger.error("Failed to pull leads from sheet '%s': %s", sheet_name, exc_container[0])
         return []
-    finally:
-        # shutdown(wait=False) so we don't block here if the fetch thread is stuck
-        executor.shutdown(wait=False)
+
+    return result_container[0] or []

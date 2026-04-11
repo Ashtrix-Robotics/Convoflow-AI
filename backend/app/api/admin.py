@@ -576,6 +576,10 @@ def _do_pull_leads(sheet_name: str):
         created = 0
         updated = 0
         skipped = 0
+        # Track phones processed in this batch so duplicate sheet rows
+        # don't cause a UniqueViolation on commit (DB query won't see
+        # pending-but-uncommitted rows added earlier in the same loop).
+        seen_phones: set[str] = set()
 
         for row in rows:
             mapped: dict[str, str] = {}
@@ -596,6 +600,12 @@ def _do_pull_leads(sheet_name: str):
             if not normalized:
                 skipped += 1
                 continue
+
+            # Skip duplicates within the same batch
+            if normalized in seen_phones:
+                skipped += 1
+                continue
+            seen_phones.add(normalized)
 
             existing = db.query(Lead).filter(Lead.phone == normalized).first()
             if not existing:
@@ -719,15 +729,17 @@ def purge_all_leads(
     Delete ALL leads from the database. This is irreversible.
     Associated call records and follow-ups remain but become orphaned.
     """
+    from app.models.models import FollowUp, WhatsAppConversation, WhatsAppMessage
     count = db.query(Lead).count()
-    # Delete all WhatsApp conversations and messages linked to leads first
-    from app.models.models import WhatsAppConversation, WhatsAppMessage
+    # Delete WhatsApp messages and conversations
     conv_ids = [c.id for c in db.query(WhatsAppConversation).all()]
     if conv_ids:
         db.query(WhatsAppMessage).filter(WhatsAppMessage.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
         db.query(WhatsAppConversation).delete(synchronize_session=False)
-    # Unlink call records from leads
-    db.query(CallRecord).filter(CallRecord.lead_id.isnot(None)).update({"lead_id": None}, synchronize_session=False)
+    # Delete follow-ups
+    db.query(FollowUp).delete(synchronize_session=False)
+    # Delete call records (orphaned records still appear in Recent Calls)
+    db.query(CallRecord).delete(synchronize_session=False)
     # Delete all leads
     db.query(Lead).delete(synchronize_session=False)
     db.commit()

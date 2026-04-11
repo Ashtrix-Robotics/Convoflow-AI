@@ -185,7 +185,10 @@ export default function AdminSettings() {
     try {
       const res = await api.delete("/admin/leads/purge");
       setPurgeResult(res.data);
+      // Invalidate all related queries so every page reflects the empty state
       qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["calls"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     } catch {
       // handled below
     } finally {

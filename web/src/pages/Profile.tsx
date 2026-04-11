@@ -56,10 +56,8 @@ export default function Profile() {
       setConfirmPwd("");
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : ((err as any)?.response?.data?.detail ??
-            "Failed to change password.");
+        (err as any)?.response?.data?.detail ??
+        (err instanceof Error ? err.message : "Failed to change password.");
       setError(msg);
     } finally {
       setLoading(false);

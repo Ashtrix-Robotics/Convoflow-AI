@@ -10,6 +10,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../services/api";
+import { supabase } from "../lib/supabase";
 
 type NavSection = "dashboard" | "leads" | "admin" | "team";
 
@@ -38,17 +39,15 @@ export default function NavBar({ active, breadcrumb }: NavBarProps) {
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () =>
-      api
-        .get("/auth/me")
-        .then(
-          (r) =>
-            r.data as {
-              id: string;
-              name: string;
-              email: string;
-              is_active: boolean;
-            },
-        ),
+      api.get("/auth/me").then(
+        (r) =>
+          r.data as {
+            id: string;
+            name: string;
+            email: string;
+            is_active: boolean;
+          },
+      ),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -67,8 +66,12 @@ export default function NavBar({ active, breadcrumb }: NavBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     setProfileOpen(false);
+    // Sign out from Supabase session too (if Supabase auth was used)
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => {});
+    }
     localStorage.clear();
     navigate("/login");
   };

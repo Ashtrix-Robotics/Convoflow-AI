@@ -212,24 +212,46 @@ export default function Leads() {
                   setBulkAction(e.target.value);
                   setConfirmDelete(false);
                 }}
-                className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600]"
               >
-                <option value="">Choose action…</option>
-                <option value="change_status">Change Status</option>
-                <option value="change_intent">Change Intent</option>
-                <option value="assign">Assign Agent</option>
-                <option value="delete">Delete</option>
+                <option value="" className="bg-[#001838] text-white">
+                  Choose action…
+                </option>
+                <option
+                  value="change_status"
+                  className="bg-[#001838] text-white"
+                >
+                  Change Status
+                </option>
+                <option
+                  value="change_intent"
+                  className="bg-[#001838] text-white"
+                >
+                  Change Intent
+                </option>
+                <option value="assign" className="bg-[#001838] text-white">
+                  Assign Agent
+                </option>
+                <option value="delete" className="bg-[#001838] text-red-300">
+                  Delete
+                </option>
               </select>
 
               {bulkAction === "change_status" && (
                 <select
                   value={bulkStatus}
                   onChange={(e) => setBulkStatus(e.target.value)}
-                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                  className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600]"
                 >
-                  <option value="">Select status…</option>
+                  <option value="" className="bg-[#001838] text-white">
+                    Select status…
+                  </option>
                   {LEAD_STATUSES.map((s) => (
-                    <option key={s} value={s}>
+                    <option
+                      key={s}
+                      value={s}
+                      className="bg-[#001838] text-white capitalize"
+                    >
                       {s.replace(/_/g, " ")}
                     </option>
                   ))}
@@ -240,11 +262,17 @@ export default function Leads() {
                 <select
                   value={bulkIntent}
                   onChange={(e) => setBulkIntent(e.target.value)}
-                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                  className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600]"
                 >
-                  <option value="">Select intent…</option>
+                  <option value="" className="bg-[#001838] text-white">
+                    Select intent…
+                  </option>
                   {INTENT_CATEGORIES.map((i) => (
-                    <option key={i} value={i}>
+                    <option
+                      key={i}
+                      value={i}
+                      className="bg-[#001838] text-white capitalize"
+                    >
                       {i.replace(/_/g, " ")}
                     </option>
                   ))}
@@ -255,11 +283,17 @@ export default function Leads() {
                 <select
                   value={bulkAgentId}
                   onChange={(e) => setBulkAgentId(e.target.value)}
-                  className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                  className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600]"
                 >
-                  <option value="">Select agent…</option>
+                  <option value="" className="bg-[#001838] text-white">
+                    Select agent…
+                  </option>
                   {agents.map((a: any) => (
-                    <option key={a.id} value={a.id}>
+                    <option
+                      key={a.id}
+                      value={a.id}
+                      className="bg-[#001838] text-white"
+                    >
                       {a.name}
                     </option>
                   ))}

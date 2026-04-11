@@ -7,9 +7,12 @@
  *   1. VITE_API_URL env var (set for production Vercel deployment)
  *   2. "/api"  — uses Vite's dev proxy → http://localhost:8000 (local dev)
  *
- * To set production URL in Vercel:
- *   vercel env add VITE_API_URL production
- *   value: https://convoflow-api.onrender.com
+ * Supabase Auth (optional — set in Vercel Environment Variables):
+ *   VITE_SUPABASE_URL      — https://<project>.supabase.co
+ *   VITE_SUPABASE_ANON_KEY — anon/public key from Supabase → Settings → API
+ *   When set, the Login page uses Supabase for auth and exchanges the token
+ *   for a platform JWT via POST /auth/supabase-session.
+ *   When not set, falls back to direct email/password against FastAPI.
  */
 
 // ─── API ──────────────────────────────────────────────────────────────────────

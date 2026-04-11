@@ -33,6 +33,16 @@ export default function LeadDetail() {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
 
+  const refreshLeadViews = (nextLead?: any) => {
+    if (nextLead) {
+      queryClient.setQueryData(["lead", id], nextLead);
+    }
+    void queryClient.invalidateQueries({ queryKey: ["lead", id] });
+    void queryClient.invalidateQueries({ queryKey: ["leads"] });
+    void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    void queryClient.invalidateQueries({ queryKey: ["my-leads"] });
+  };
+
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
     queryFn: () => api.get(`/leads/${id}`).then((r) => r.data),
@@ -52,8 +62,9 @@ export default function LeadDetail() {
   });
 
   const updateLead = useMutation({
-    mutationFn: (data: Record<string, any>) => api.patch(`/leads/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
+    mutationFn: (data: Record<string, any>) =>
+      api.patch(`/leads/${id}`, data).then((r) => r.data),
+    onSuccess: (nextLead) => refreshLeadViews(nextLead),
   });
 
   const { data: agents = [] } = useQuery({
@@ -63,13 +74,15 @@ export default function LeadDetail() {
 
   const assignAgent = useMutation({
     mutationFn: (agentId: string) =>
-      api.post(`/leads/${id}/assign`, null, { params: { agent_id: agentId } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
+      api
+        .post(`/leads/${id}/assign`, null, { params: { agent_id: agentId } })
+        .then((r) => r.data),
+    onSuccess: (nextLead) => refreshLeadViews(nextLead),
   });
 
   const markNoAnswer = useMutation({
-    mutationFn: () => api.post(`/leads/${id}/no-answer`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lead", id] }),
+    mutationFn: () => api.post(`/leads/${id}/no-answer`).then((r) => r.data),
+    onSuccess: (nextLead) => refreshLeadViews(nextLead),
   });
 
   if (isLoading)
@@ -264,8 +277,8 @@ export default function LeadDetail() {
               onClick={() => {
                 if (!notes.trim()) return;
                 const updated = lead.notes
-                  ? `${lead.notes}\n${new Date().toLocaleDateString()} — ${notes}`
-                  : `${new Date().toLocaleDateString()} — ${notes}`;
+                  ? `${lead.notes}\n${new Date().toLocaleDateString()} - ${notes}`
+                  : `${new Date().toLocaleDateString()} - ${notes}`;
                 updateLead.mutate({ notes: updated });
                 setNotes("");
               }}

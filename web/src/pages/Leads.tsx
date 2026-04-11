@@ -84,7 +84,7 @@ export default function Leads() {
     queryKey: ["agents"],
     queryFn: () =>
       api
-        .get("/auth/agents")
+        .get("/agents/")
         .then((r) => r.data)
         .catch(() => []),
   });

@@ -11,11 +11,6 @@ from app.core.database import Base, engine
 from app.api import admin, aisensy, analytics, auth, calls, clients, followups, leads, agents_admin
 from app.api.deps import get_current_agent
 
-# Auto-create tables only in development.
-# In production, run: alembic upgrade head
-if settings.environment == "development":
-    Base.metadata.create_all(bind=engine)
-
 # ─── Rate Limiter ─────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
@@ -81,4 +76,4 @@ app.include_router(agents_admin.router)  # has router-level auth
 @app.get("/health")
 @limiter.limit("30/minute")
 def health_check(request: Request):
-    return {"status": "ok", "service": "Convoflow AI API", "version": "10"}
+    return {"status": "ok", "service": "Convoflow AI API", "version": "11"}

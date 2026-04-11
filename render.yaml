@@ -22,20 +22,15 @@ services:
         value: https://api.groq.com/openai/v1
       - key: GROQ_WHISPER_MODEL
         value: whisper-large-v3-turbo
-      - key: DEEPSEEK_API_KEY
-        sync: false
-      - key: DEEPSEEK_BASE_URL
-        value: https://api.deepseek.com/v1
-      - key: DEEPSEEK_CHAT_MODEL
-        value: deepseek-chat
       - key: AI_GATEWAY_API_KEY
         sync: false
       - key: AI_GATEWAY_BASE_URL
         value: https://ai-gateway.vercel.sh/v1
-      - key: AI_GATEWAY_WHISPER_MODEL
-        value: whisper-1
+      # Text LLM model via Vercel AI Gateway. Format: "provider/model"
+      # Examples: deepseek/deepseek-chat, openai/gpt-4o-mini,
+      #           groq/llama-3.3-70b-versatile, anthropic/claude-3-5-haiku-20241022
       - key: AI_GATEWAY_CHAT_MODEL
-        value: gpt-4o-mini
+        value: deepseek/deepseek-chat
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

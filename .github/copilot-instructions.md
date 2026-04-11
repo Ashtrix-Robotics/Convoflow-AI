@@ -5,9 +5,22 @@
 **Convoflow AI** is a platform for sales teams to record, transcribe, and automate follow-ups from sales calls.
 
 - **Mobile app** (React Native + Expo): sales agents record calls on their phone
-- **Backend API** (FastAPI + Python): transcribes audio using OpenAI Whisper, extracts action items with GPT-4
+- **Backend API** (FastAPI + Python): transcribes audio using Groq Whisper, extracts action items with Vercel AI Gateway (DeepSeek V3)
 - **Web dashboard** (React + Vite): managers view call summaries, transcripts, and follow-up status
 - **Automation** (Pabbly Connect): webhooks trigger CRM updates, emails, WhatsApp reminders
+
+---
+
+## ⚠ No-Fallback Policy
+
+**CRITICAL: Never add fallback/redundant logic unless the user explicitly requests it.**
+
+- No SQLite fallbacks — production and local dev both use Supabase PostgreSQL
+- No legacy auth paths — web always uses Supabase Auth → `/auth/supabase-session`
+- No local file storage fallbacks — always Supabase Storage
+- No DeepSeek direct API — always use Vercel AI Gateway
+- No OpenAI direct API — Groq for audio, AI Gateway for text
+- If a required config is missing, **fail loudly** at startup — never silently degrade
 
 ---
 
@@ -22,14 +35,40 @@
 
 ## Tech Stack Quick Reference
 
-| Layer      | Tech                                                        |
-| ---------- | ----------------------------------------------------------- |
-| Mobile     | React Native, Expo SDK 53, Expo Router v4, expo-av          |
-| Backend    | FastAPI, SQLAlchemy 2.0, Pydantic v2, PyJWT                 |
-| AI         | OpenAI gpt-4o-mini-transcribe + gpt-4o-mini                 |
-| Automation | Pabbly Connect webhooks                                     |
-| Web        | React 18, Vite 6, TanStack Query v5, Recharts, Tailwind CSS |
-| Auth       | JWT (HS256), bcrypt, OAuth2 password flow                   |
+| Layer      | Tech                                                                         |
+| ---------- | ---------------------------------------------------------------------------- |
+| Mobile     | React Native, Expo SDK 53, Expo Router v4, expo-av                           |
+| Backend    | FastAPI, SQLAlchemy 2.0, Pydantic v2, PyJWT                                  |
+| AI Audio   | Groq Whisper large-v3-turbo (`GROQ_API_KEY`)                                 |
+| AI Text    | Vercel AI Gateway (`AI_GATEWAY_API_KEY`) — model: `AI_GATEWAY_CHAT_MODEL`    |
+| Database   | Supabase PostgreSQL (`DATABASE_URL` required — no SQLite)                    |
+| Storage    | Supabase Storage (`SUPABASE_URL` + `SUPABASE_SERVICE_KEY` required)          |
+| Auth       | Supabase Auth (web) → exchange for platform JWT via `/auth/supabase-session` |
+| Auth       | FastAPI JWT (mobile) — `/auth/login` with form credentials                   |
+| Automation | Pabbly Connect webhooks                                                      |
+| Web        | React 18, Vite 6, TanStack Query v5, Recharts, Tailwind CSS                 |
+
+---
+
+## AI Model Selection
+
+**Architecture: Two models, two purposes — no fallbacks:**
+
+| Task | Service | Config Env Var | Default |
+|---|---|---|---|
+| Audio transcription | Groq Whisper | `GROQ_WHISPER_MODEL` | `whisper-large-v3-turbo` |
+| All text tasks (intent extraction, summarization) | Vercel AI Gateway | `AI_GATEWAY_CHAT_MODEL` | `deepseek/deepseek-chat` |
+
+**To change the text LLM model** (no code change needed):
+1. Go to **Render Dashboard → convoflow-api service → Environment**
+2. Update `AI_GATEWAY_CHAT_MODEL` to any supported Vercel AI Gateway model:
+   - `deepseek/deepseek-chat` — DeepSeek V3: best cost-to-performance, great for structured extraction
+   - `groq/llama-3.3-70b-versatile` — Groq Llama 3.3: ultra-fast inference
+   - `openai/gpt-4o-mini` — OpenAI: reliable, slightly higher cost
+   - `anthropic/claude-3-5-haiku-20241022` — Claude Haiku: strong reasoning
+3. Trigger a manual redeploy (or wait for next auto-deploy)
+
+**For local dev**: set `AI_GATEWAY_CHAT_MODEL` in `backend/.env`.
 
 ---
 
@@ -112,7 +151,7 @@
 ### Database Management
 - Uses **SQLAlchemy 2.0** + **Alembic**.
 - Migration command: `alembic upgrade head` in [backend/](backend/).
-- Default DB: SQLite `convoflow.db` in [backend/](backend/).
+- **Production and local dev both use Supabase PostgreSQL.** `DATABASE_URL` must always be set.
 
 ---
 
@@ -120,12 +159,13 @@
 
 ### Backend (Python / FastAPI)
 
-- Use `async def` for all route handlers and service functions (OpenAI calls are async)
+- Use `async def` for all route handlers and service functions (Groq/AI Gateway calls are async)
 - Always use `Depends(get_current_agent)` for protected routes — never check auth inline
 - CallRecord statuses are EXACTLY: `pending`, `transcribing`, `completed`, `failed`
-- All IDs are UUIDs stored as strings in SQLite
+- All IDs are UUIDs stored as strings in PostgreSQL
 - `BackgroundTasks` for transcription — routes must return `202 Accepted` immediately
 - Never raise unhandled exceptions inside background tasks — catch and set `status = "failed"`
+- **No fallbacks** — if a required service (Groq, AI Gateway, Supabase) is missing, fail loudly
 
 ### Mobile (TypeScript / React Native)
 
@@ -134,11 +174,13 @@
 - Audio format: `.m4a` using `Audio.RecordingOptionsPresets.HIGH_QUALITY`
 - Poll `GET /calls/{id}` every 3 seconds using TanStack Query `refetchInterval`
 - Set `staysActiveInBackground: true` in audio mode for reliable recording
+- Mobile auth: `POST /auth/login` with OAuth2 form credentials (platform JWT only, no Supabase)
 
 ### Web (TypeScript / React)
 
 - All API calls go through `/api/*` (Vite proxies to FastAPI on port 8000)
-- Store JWT in `localStorage.getItem("access_token")` (web only — mobile uses SecureStore)
+- Store platform JWT in `localStorage.getItem("access_token")` — obtained via Supabase → `/auth/supabase-session`
+- Auth: always Supabase `signInWithPassword()` → exchange token at `/auth/supabase-session` — no direct-backend fallback
 - Protect all routes with the `ProtectedRoute` component pattern
 - Use `refetchInterval` on call queries that may still be transcribing
 - **Nuance:** `EXPO_PUBLIC_API_URL` for mobile MUST be the **Local IP** when using physical devices.
@@ -149,12 +191,21 @@
 
 ```env
 # Backend .env
-OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk_...
+AI_GATEWAY_API_KEY=...          # Vercel AI Gateway key
+AI_GATEWAY_CHAT_MODEL=deepseek/deepseek-chat  # change to swap text models
 PABBLY_WEBHOOK_URL=https://connect.pabbly.com/workflow/...
-PABBLY_WEBHOOK_SECRET=...
-SECRET_KEY=...           # min 32 chars — use secrets.token_hex(32)
-DATABASE_URL=sqlite:///./convoflow.db
-UPLOAD_DIR=./uploads
+PABBLY_SECRET_KEY=...
+SECRET_KEY=...                  # min 32 chars — use secrets.token_hex(32)
+DATABASE_URL=postgresql://...   # Supabase PostgreSQL pooler URI (required)
+SUPABASE_URL=https://...supabase.co
+SUPABASE_SERVICE_KEY=...        # service_role key (backend only)
+SUPABASE_ANON_KEY=...
+
+# Web .env (Vercel Environment Variables)
+VITE_API_URL=https://convoflow-api.onrender.com
+VITE_SUPABASE_URL=https://...supabase.co
+VITE_SUPABASE_ANON_KEY=...      # anon/public key
 
 # Mobile .env (Expo reads EXPO_PUBLIC_*)
 EXPO_PUBLIC_API_URL=http://192.168.x.x:8000
@@ -164,17 +215,18 @@ EXPO_PUBLIC_API_URL=http://192.168.x.x:8000
 
 ## API Endpoint Summary
 
-| Method   | Path                       | Description                             |
-| -------- | -------------------------- | --------------------------------------- |
-| POST     | `/auth/register`           | Register new agent                      |
-| POST     | `/auth/login`              | Get JWT token (OAuth2 form)             |
-| POST     | `/calls/upload`            | Upload audio file → start transcription |
-| GET      | `/calls`                   | List agent's calls                      |
-| GET      | `/calls/{id}`              | Get call status + results               |
-| GET/POST | `/clients`                 | Client CRUD                             |
-| POST     | `/followups`               | Create follow-up → fires Pabbly webhook |
-| GET      | `/followups`               | List follow-ups                         |
-| PATCH    | `/followups/{id}/complete` | Mark follow-up as done                  |
+| Method   | Path                          | Description                                |
+| -------- | ----------------------------- | ------------------------------------------ |
+| POST     | `/auth/register`              | Register new agent                         |
+| POST     | `/auth/login`                 | Get JWT token (OAuth2 form — mobile only)  |
+| POST     | `/auth/supabase-session`      | Exchange Supabase JWT for platform JWT (web) |
+| POST     | `/calls/upload`               | Upload audio file → start transcription    |
+| GET      | `/calls`                      | List agent's calls                         |
+| GET      | `/calls/{id}`                 | Get call status + results                  |
+| GET/POST | `/clients`                    | Client CRUD                                |
+| POST     | `/followups`                  | Create follow-up → fires Pabbly webhook    |
+| GET      | `/followups`                  | List follow-ups                            |
+| PATCH    | `/followups/{id}/complete`    | Mark follow-up as done                     |
 
 ---
 
@@ -182,10 +234,10 @@ EXPO_PUBLIC_API_URL=http://192.168.x.x:8000
 
 Two events are fired automatically:
 
-- `transcription.completed` — after OpenAI Whisper finishes
+- `transcription.completed` — after Groq Whisper finishes
 - `followup.scheduled` — after agent creates a follow-up
 
-The Pabbly service (`backend/app/services/pabbly.py`) signs all payloads with HMAC-SHA256 using `PABBLY_WEBHOOK_SECRET`.
+The Pabbly service (`backend/app/services/pabbly.py`) signs all payloads with HMAC-SHA256 using `PABBLY_SECRET_KEY`.
 
 ---
 
@@ -193,9 +245,10 @@ The Pabbly service (`backend/app/services/pabbly.py`) signs all payloads with HM
 
 1. Validate audio MIME types before saving to disk (only allow audio/\* types)
 2. Use `hmac.compare_digest` for all webhook signature comparisons
-3. Rate-limit `/auth/login` in production (add `slowapi` middleware)
+3. Rate-limit `/auth/login` and `/auth/supabase-session` in production (slowapi)
 4. The `SECRET_KEY` must be randomly generated — never a guessable string
-5. In production, set `allow_origins` to specific domains, not `["*"]`
+5. In production, set `ALLOWED_ORIGINS` to specific domains only, never `"*"`
+6. Never expose `SUPABASE_SERVICE_KEY` to the frontend — it's backend-only
 
 ---
 

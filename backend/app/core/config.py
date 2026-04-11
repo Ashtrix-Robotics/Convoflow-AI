@@ -20,24 +20,21 @@ class Settings(BaseSettings):
         return self
 
     # ---------------------------------------------------------------------------
-    # AI — Transcription (Groq Whisper) + LLM (DeepSeek V3)
+    # AI — Audio Transcription: Groq Whisper | Text LLM: Vercel AI Gateway
     # ---------------------------------------------------------------------------
-    # Groq: free-tier Whisper, multilingual (Tamil + English supported)
+    # Groq: Whisper large-v3-turbo for audio transcription (Tamil + English)
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_whisper_model: str = "whisper-large-v3-turbo"
 
-    # DeepSeek V3: ultra-low-cost LLM for intent extraction
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com/v1"
-    deepseek_chat_model: str = "deepseek-chat"
-    deepseek_temperature: float = 0.1
-
-    # Fallback: Vercel AI Gateway (used if Groq/DeepSeek keys are absent)
+    # Vercel AI Gateway — all text/LLM tasks (intent extraction, summarization)
+    # Model format: "provider/model" e.g. "deepseek/deepseek-chat" (DeepSeek V3)
+    # Other options: "groq/llama-3.3-70b-versatile", "openai/gpt-4o-mini",
+    #                "anthropic/claude-3-5-haiku-20241022", "minimax/minimax-text-01"
+    # Change AI_GATEWAY_CHAT_MODEL env var to switch models without redeploying.
     ai_gateway_api_key: str = ""
     ai_gateway_base_url: str = "https://ai-gateway.vercel.sh/v1"
-    ai_gateway_whisper_model: str = "whisper-1"
-    ai_gateway_chat_model: str = "gpt-4o-mini"
+    ai_gateway_chat_model: str = "deepseek/deepseek-chat"
     ai_gateway_temperature: float = 0.1
 
     # ---------------------------------------------------------------------------
@@ -79,15 +76,16 @@ class Settings(BaseSettings):
     aisensy_request_timeout_seconds: float = 15.0
 
     # ---------------------------------------------------------------------------
-    # Database
+    # Database — Supabase PostgreSQL (required)
     # ---------------------------------------------------------------------------
-    # Default: SQLite for local dev. Override with PostgreSQL URL in production.
-    database_url: str = "sqlite:///./convoflow.db"
+    # Set DATABASE_URL to your Supabase connection pooling URI:
+    # Supabase Dashboard → Settings → Database → Connection Pooling → URI
+    database_url: str = ""
 
     # ---------------------------------------------------------------------------
-    # File storage fallback (used only when Supabase storage is unavailable)
+    # Temp upload dir — for streaming audio to Groq Whisper before Supabase upload
     # ---------------------------------------------------------------------------
-    upload_dir: str = "uploads"
+    upload_dir: str = "/tmp/uploads"
     max_audio_size_mb: int = 100
 
     # ---------------------------------------------------------------------------
@@ -140,10 +138,6 @@ class Settings(BaseSettings):
     @property
     def use_groq(self) -> bool:
         return bool(self.groq_api_key)
-
-    @property
-    def use_deepseek(self) -> bool:
-        return bool(self.deepseek_api_key)
 
     @property
     def use_supabase_storage(self) -> bool:

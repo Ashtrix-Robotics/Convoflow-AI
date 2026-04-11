@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { TOKEN_KEY } from "../config";
-import { supabase, isSupabaseEnabled } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -17,38 +17,27 @@ export default function Login() {
     setLoading(true);
 
     try {
-      if (isSupabaseEnabled() && supabase) {
-        // ── Supabase Auth flow ────────────────────────────────────────────────
-        // 1. Sign in via Supabase (handles session, refresh tokens, etc.)
-        const { data: authData, error: authError } =
-          await supabase.auth.signInWithPassword({ email, password });
+      // 1. Sign in via Supabase (handles session, refresh tokens, MFA, etc.)
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({ email, password });
 
-        if (authError || !authData.session) {
-          throw new Error(authError?.message ?? "Authentication failed");
-        }
-
-        // 2. Exchange Supabase JWT for our platform JWT
-        const res = await api.post("/auth/supabase-session", {
-          supabase_token: authData.session.access_token,
-        });
-        localStorage.setItem(TOKEN_KEY, res.data.access_token);
-      } else {
-        // ── Legacy direct-backend flow (fallback when Supabase not configured) ──
-        const form = new URLSearchParams();
-        form.append("username", email);
-        form.append("password", password);
-        const res = await api.post("/auth/login", form.toString(), {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        });
-        localStorage.setItem(TOKEN_KEY, res.data.access_token);
+      if (authError || !authData.session) {
+        throw new Error(authError?.message ?? "Authentication failed");
       }
 
+      // 2. Exchange Supabase JWT for a platform JWT
+      const res = await api.post("/auth/supabase-session", {
+        supabase_token: authData.session.access_token,
+      });
+      localStorage.setItem(TOKEN_KEY, res.data.access_token);
       navigate("/");
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Invalid email or password";
       setError(
-        msg.includes("Invalid login") ? "Invalid email or password" : msg,
+        msg.includes("Invalid login credentials")
+          ? "Invalid email or password"
+          : msg,
       );
     } finally {
       setLoading(false);
@@ -107,11 +96,9 @@ export default function Login() {
           </button>
         </form>
 
-        {isSupabaseEnabled() && (
-          <p className="text-center text-xs text-gray-400 mt-5">
-            Secured by Supabase Auth
-          </p>
-        )}
+        <p className="text-center text-xs text-gray-400 mt-5">
+          Secured by Supabase Auth
+        </p>
       </div>
     </div>
   );

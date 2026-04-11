@@ -15,11 +15,25 @@ const PIPELINE_COLUMNS = [
   { key: "lost", label: "Lost", color: "bg-red-500" },
 ] as const;
 
-const LEAD_STATUSES = ["new", "contacted", "qualified", "payment_sent", "converted", "lost"];
+const LEAD_STATUSES = [
+  "new",
+  "contacted",
+  "qualified",
+  "payment_sent",
+  "converted",
+  "lost",
+];
 const INTENT_CATEGORIES = [
-  "new", "interested", "callback_requested", "payment_pending",
-  "not_interested", "no_answer", "future_planning", "converted",
-  "wrong_number", "undecided",
+  "new",
+  "interested",
+  "callback_requested",
+  "payment_pending",
+  "not_interested",
+  "no_answer",
+  "future_planning",
+  "converted",
+  "wrong_number",
+  "undecided",
 ];
 
 const INTENT_COLORS: Record<string, string> = {
@@ -46,7 +60,10 @@ export default function Leads() {
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkIntent, setBulkIntent] = useState("");
   const [bulkAgentId, setBulkAgentId] = useState("");
-  const [bulkMsg, setBulkMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [bulkMsg, setBulkMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: leads = [], isLoading } = useQuery({
@@ -65,7 +82,11 @@ export default function Leads() {
 
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
-    queryFn: () => api.get("/auth/agents").then((r) => r.data).catch(() => []),
+    queryFn: () =>
+      api
+        .get("/auth/agents")
+        .then((r) => r.data)
+        .catch(() => []),
   });
 
   const bulkMutation = useMutation({
@@ -73,7 +94,10 @@ export default function Leads() {
       api.post("/leads/bulk", payload).then((r) => r.data),
     onSuccess: (result) => {
       const acted = (result.updated || 0) + (result.deleted || 0);
-      setBulkMsg({ type: "success", text: `Done: ${acted} lead(s) updated${result.failed ? `, ${result.failed} failed` : ""}.` });
+      setBulkMsg({
+        type: "success",
+        text: `Done: ${acted} lead(s) updated${result.failed ? `, ${result.failed} failed` : ""}.`,
+      });
       setSelected(new Set());
       setBulkAction("");
       setBulkStatus("");
@@ -85,7 +109,10 @@ export default function Leads() {
       setTimeout(() => setBulkMsg(null), 5000);
     },
     onError: (err: any) => {
-      setBulkMsg({ type: "error", text: err?.response?.data?.detail ?? "Bulk action failed." });
+      setBulkMsg({
+        type: "error",
+        text: err?.response?.data?.detail ?? "Bulk action failed.",
+      });
     },
   });
 
@@ -155,7 +182,10 @@ export default function Leads() {
           </select>
           <div className="ml-auto flex gap-1 bg-gray-200 rounded-lg p-0.5">
             <button
-              onClick={() => { setView("pipeline"); setSelected(new Set()); }}
+              onClick={() => {
+                setView("pipeline");
+                setSelected(new Set());
+              }}
               className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${view === "pipeline" ? "bg-white shadow text-gray-800" : "text-gray-500"}`}
             >
               Pipeline
@@ -178,7 +208,10 @@ export default function Leads() {
               </span>
               <select
                 value={bulkAction}
-                onChange={(e) => { setBulkAction(e.target.value); setConfirmDelete(false); }}
+                onChange={(e) => {
+                  setBulkAction(e.target.value);
+                  setConfirmDelete(false);
+                }}
                 className="text-sm bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 focus:outline-none"
               >
                 <option value="">Choose action…</option>
@@ -196,7 +229,9 @@ export default function Leads() {
                 >
                   <option value="">Select status…</option>
                   {LEAD_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                    <option key={s} value={s}>
+                      {s.replace(/_/g, " ")}
+                    </option>
                   ))}
                 </select>
               )}
@@ -209,7 +244,9 @@ export default function Leads() {
                 >
                   <option value="">Select intent…</option>
                   {INTENT_CATEGORIES.map((i) => (
-                    <option key={i} value={i}>{i.replace(/_/g, " ")}</option>
+                    <option key={i} value={i}>
+                      {i.replace(/_/g, " ")}
+                    </option>
                   ))}
                 </select>
               )}
@@ -222,14 +259,17 @@ export default function Leads() {
                 >
                   <option value="">Select agent…</option>
                   {agents.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
                   ))}
                 </select>
               )}
 
               {bulkAction === "delete" && confirmDelete && (
                 <span className="text-red-300 text-xs font-medium">
-                  ⚠ This will permanently delete {selected.size} lead(s). Click Delete to confirm.
+                  ⚠ This will permanently delete {selected.size} lead(s). Click
+                  Delete to confirm.
                 </span>
               )}
 
@@ -245,12 +285,18 @@ export default function Leads() {
                 {bulkMutation.isPending
                   ? "Processing…"
                   : bulkAction === "delete"
-                  ? confirmDelete ? "✓ Delete" : "Delete"
-                  : "Apply"}
+                    ? confirmDelete
+                      ? "✓ Delete"
+                      : "Delete"
+                    : "Apply"}
               </button>
 
               <button
-                onClick={() => { setSelected(new Set()); setBulkAction(""); setConfirmDelete(false); }}
+                onClick={() => {
+                  setSelected(new Set());
+                  setBulkAction("");
+                  setConfirmDelete(false);
+                }}
                 className="ml-auto text-white/60 hover:text-white text-xs"
               >
                 Clear
@@ -261,7 +307,9 @@ export default function Leads() {
             {bulkMsg && (
               <div
                 className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium ${
-                  bulkMsg.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                  bulkMsg.type === "success"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
                 }`}
               >
                 {bulkMsg.text}
@@ -344,7 +392,9 @@ export default function Leads() {
                   <th className="px-4 py-3 w-8">
                     <input
                       type="checkbox"
-                      checked={leads.length > 0 && selected.size === leads.length}
+                      checked={
+                        leads.length > 0 && selected.size === leads.length
+                      }
                       onChange={toggleAll}
                       className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
                       title="Select all"
@@ -364,7 +414,10 @@ export default function Leads() {
                     key={lead.id}
                     className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
                   >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="px-4 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         checked={selected.has(lead.id)}
@@ -378,7 +431,9 @@ export default function Leads() {
                     >
                       {lead.name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{lead.phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {lead.phone}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
                         {lead.status?.replace(/_/g, " ")}
@@ -412,7 +467,8 @@ export default function Leads() {
             )}
             {leads.length > 0 && (
               <p className="text-xs text-gray-400 mt-2 text-right">
-                {leads.length} leads · Switch to List view to use bulk operations
+                {leads.length} leads · Switch to List view to use bulk
+                operations
               </p>
             )}
           </div>

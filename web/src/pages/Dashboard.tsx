@@ -110,21 +110,33 @@ export default function Dashboard() {
             {/* Row 1 — primary KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Total Leads</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{analytics.total_leads}</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Total Leads
+                </p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">
+                  {analytics.total_leads}
+                </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Contacted</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Contacted
+                </p>
                 <p className="text-3xl font-bold text-blue-600 mt-1">
                   {analytics.leads_by_status?.contacted ?? 0}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Converted</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{analytics.total_conversions}</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Converted
+                </p>
+                <p className="text-3xl font-bold text-green-600 mt-1">
+                  {analytics.total_conversions}
+                </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Conversion Rate</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Conversion Rate
+                </p>
                 <p className="text-3xl font-bold text-[#FF6600] mt-1">
                   {analytics.conversion_rate.toFixed(1)}%
                 </p>
@@ -133,29 +145,55 @@ export default function Dashboard() {
 
             {/* Row 2 — operational KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className={`rounded-xl shadow-sm p-5 ${analytics.stale_leads_count > 0 ? "bg-red-50 border border-red-200" : "bg-white"}`}>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Stale Leads</p>
-                <p className={`text-3xl font-bold mt-1 ${analytics.stale_leads_count > 0 ? "text-red-600" : "text-gray-800"}`}>
+              <div
+                className={`rounded-xl shadow-sm p-5 ${analytics.stale_leads_count > 0 ? "bg-red-50 border border-red-200" : "bg-white"}`}
+              >
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Stale Leads
+                </p>
+                <p
+                  className={`text-3xl font-bold mt-1 ${analytics.stale_leads_count > 0 ? "text-red-600" : "text-gray-800"}`}
+                >
                   {analytics.stale_leads_count}
                 </p>
-                <p className="text-[10px] text-gray-400 mt-1">Not acted on in 7+ days</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Not acted on in 7+ days
+                </p>
               </div>
-              <div className={`rounded-xl shadow-sm p-5 ${analytics.followups_due_today > 0 ? "bg-orange-50 border border-orange-200" : "bg-white"}`}>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Follow-ups Today</p>
-                <p className={`text-3xl font-bold mt-1 ${analytics.followups_due_today > 0 ? "text-orange-600" : "text-gray-800"}`}>
+              <div
+                className={`rounded-xl shadow-sm p-5 ${analytics.followups_due_today > 0 ? "bg-orange-50 border border-orange-200" : "bg-white"}`}
+              >
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Follow-ups Today
+                </p>
+                <p
+                  className={`text-3xl font-bold mt-1 ${analytics.followups_due_today > 0 ? "text-orange-600" : "text-gray-800"}`}
+                >
                   {analytics.followups_due_today}
                 </p>
                 <p className="text-[10px] text-gray-400 mt-1">Due today</p>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">WhatsApp Active</p>
-                <p className="text-3xl font-bold text-emerald-600 mt-1">{analytics.whatsapp_active_count}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Live conversations</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  WhatsApp Active
+                </p>
+                <p className="text-3xl font-bold text-emerald-600 mt-1">
+                  {analytics.whatsapp_active_count}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Live conversations
+                </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-5">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Avg Follow-ups</p>
-                <p className="text-3xl font-bold text-gray-700 mt-1">{analytics.avg_followup_count}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Per lead average</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  Avg Follow-ups
+                </p>
+                <p className="text-3xl font-bold text-gray-700 mt-1">
+                  {analytics.avg_followup_count}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Per lead average
+                </p>
               </div>
             </div>
           </>
@@ -184,12 +222,24 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
                       formatter={(value: any, name: string) =>
-                        name === "conversion_rate" ? [`${value}%`, "Conv. Rate"] : [value, name]
+                        name === "conversion_rate"
+                          ? [`${value}%`, "Conv. Rate"]
+                          : [value, name]
                       }
                     />
                     <Legend />
-                    <Bar dataKey="leads" fill="#002147" radius={[4, 4, 0, 0]} name="Leads" />
-                    <Bar dataKey="converted" fill="#10B981" radius={[4, 4, 0, 0]} name="Converted" />
+                    <Bar
+                      dataKey="leads"
+                      fill="#002147"
+                      radius={[4, 4, 0, 0]}
+                      name="Leads"
+                    />
+                    <Bar
+                      dataKey="converted"
+                      fill="#10B981"
+                      radius={[4, 4, 0, 0]}
+                      name="Converted"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
                 {/* Top campaigns conversion table */}
@@ -209,10 +259,18 @@ export default function Dashboard() {
                         .slice(0, 6)
                         .map((c: any) => (
                           <tr key={c.campaign}>
-                            <td className="py-1 text-gray-700 font-medium truncate max-w-[140px]">{c.campaign}</td>
-                            <td className="py-1 text-right text-gray-500">{c.leads}</td>
-                            <td className="py-1 text-right text-green-600">{c.converted}</td>
-                            <td className="py-1 text-right text-[#FF6600] font-semibold">{c.conversion_rate ?? 0}%</td>
+                            <td className="py-1 text-gray-700 font-medium truncate max-w-[140px]">
+                              {c.campaign}
+                            </td>
+                            <td className="py-1 text-right text-gray-500">
+                              {c.leads}
+                            </td>
+                            <td className="py-1 text-right text-green-600">
+                              {c.converted}
+                            </td>
+                            <td className="py-1 text-right text-[#FF6600] font-semibold">
+                              {c.conversion_rate ?? 0}%
+                            </td>
                           </tr>
                         ))}
                     </tbody>
@@ -301,7 +359,9 @@ export default function Dashboard() {
         {/* Status Funnel */}
         {analytics?.status_funnel?.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="font-semibold text-gray-700 mb-4">Pipeline Funnel</h3>
+            <h3 className="font-semibold text-gray-700 mb-4">
+              Pipeline Funnel
+            </h3>
             <div className="space-y-2">
               {analytics.status_funnel.map((stage: any) => (
                 <div key={stage.stage} className="flex items-center gap-3">
@@ -313,7 +373,8 @@ export default function Dashboard() {
                       className="h-6 rounded-full flex items-center px-2 transition-all duration-500"
                       style={{
                         width: `${Math.max(stage.pct, stage.count > 0 ? 4 : 0)}%`,
-                        backgroundColor: FUNNEL_COLORS[stage.stage] ?? "#9CA3AF",
+                        backgroundColor:
+                          FUNNEL_COLORS[stage.stage] ?? "#9CA3AF",
                       }}
                     >
                       {stage.count > 0 && (
@@ -323,7 +384,9 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400 w-12 text-right">{stage.pct}%</span>
+                  <span className="text-xs text-gray-400 w-12 text-right">
+                    {stage.pct}%
+                  </span>
                 </div>
               ))}
             </div>

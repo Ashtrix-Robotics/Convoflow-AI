@@ -518,6 +518,23 @@ def get_worksheets(agent: Agent = Depends(get_current_agent)):
     return {"worksheets": tabs}
 
 
+@router.get("/sheets/pull-test", tags=["admin"])
+def sheets_pull_test(
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Synchronous test endpoint: try pulling leads and return raw result or error."""
+    import traceback
+    sheet_name = _get_setting(db, "google_source_sheet_name", settings.google_source_sheet_name or "Sheet1") or "Sheet1"
+    try:
+        rows = sheets_pull_leads(sheet_name)
+        return {"status": "ok", "sheet_name": sheet_name, "rows": len(rows), "sample": rows[:2] if rows else []}
+    except TimeoutError as te:
+        return {"status": "timeout", "detail": str(te)}
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc), "traceback": traceback.format_exc()[-500:]}
+
+
 def _do_pull_leads(sheet_name: str):
     """Background task: pull leads from Google Sheet into the database."""
     from app.core.database import create_db_session

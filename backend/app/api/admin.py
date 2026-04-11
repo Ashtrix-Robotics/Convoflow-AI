@@ -644,7 +644,6 @@ def _do_pull_leads(sheet_name: str):
 
 @router.post("/sheets/pull", tags=["admin"], status_code=202)
 def sheets_pull(
-    bg: BackgroundTasks,
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
@@ -652,6 +651,8 @@ def sheets_pull(
     Kick off a background pull of leads from the source Google Sheet tab.
     Returns 202 immediately. Poll GET /admin/sheets/pull-status for results.
     """
+    import threading
+
     if not settings.use_google_sheets:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -663,7 +664,10 @@ def sheets_pull(
         "status": "running", "sheet_name": sheet_name,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }))
-    bg.add_task(_do_pull_leads, sheet_name)
+    # Use a daemon thread instead of BackgroundTasks to avoid Starlette's
+    # background task runner which can block on sync functions.
+    t = threading.Thread(target=_do_pull_leads, args=(sheet_name,), daemon=True)
+    t.start()
     return {"status": "started", "sheet_name": sheet_name}
 
 

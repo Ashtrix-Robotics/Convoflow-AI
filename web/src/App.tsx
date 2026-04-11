@@ -7,6 +7,8 @@ import LeadDetail from "./pages/LeadDetail";
 import AdminSettings from "./pages/AdminSettings";
 import TeamManagement from "./pages/TeamManagement";
 import CampaignKnowledge from "./pages/CampaignKnowledge";
+import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import ServerWakeUp from "./components/ServerWakeUp";
 import { TOKEN_KEY } from "./config";
 
@@ -76,6 +78,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CampaignKnowledge />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />

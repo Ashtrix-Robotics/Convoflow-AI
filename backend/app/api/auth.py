@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -103,3 +104,49 @@ def supabase_session(request: Request, body: SupabaseSessionIn, db: Session = De
 @router.get("/me", response_model=AgentOut)
 def me(agent: Agent = Depends(get_current_agent)):
     return agent
+
+
+class ResetPlatformPasswordIn(BaseModel):
+    supabase_token: str
+    new_password: str = Field(..., min_length=8)
+
+
+@router.post("/reset-platform-password", status_code=200)
+@limiter.limit("10/minute")
+def reset_platform_password(
+    request: Request,
+    body: ResetPlatformPasswordIn,
+    db: Session = Depends(get_db),
+):
+    """
+    After a Supabase password-reset email flow, sync the new password to
+    the platform DB so mobile (platform-JWT) login keeps working.
+
+    Flow:
+    1. Frontend calls supabase.auth.updateUser({ password: newPassword })
+    2. Frontend sends the fresh Supabase access_token + new password here.
+    3. We verify the token, find the Agent, and update hashed_password.
+    """
+    if not settings.supabase_url or not settings.supabase_service_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase auth not configured on this server.",
+        )
+    try:
+        from supabase import create_client as _sc
+        sb = _sc(settings.supabase_url, settings.supabase_service_key)
+        user_response = sb.auth.get_user(body.supabase_token)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired Supabase token")
+
+    sb_user = getattr(user_response, "user", None)
+    if not sb_user or not sb_user.email:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not verify Supabase token")
+
+    agent = db.query(Agent).filter(Agent.email == sb_user.email).first()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No platform account linked to this email")
+
+    agent.hashed_password = hash_password(body.new_password)
+    db.commit()
+    return {"message": "Platform password updated"}

@@ -510,7 +510,10 @@ export default function Leads() {
               );
             })}
             <button
-              onClick={() => setFilters([])}
+              onClick={() => {
+                setFilters([]);
+                setFilterMode("and");
+              }}
               className="text-xs text-gray-400 hover:text-gray-600 underline"
             >
               Clear all

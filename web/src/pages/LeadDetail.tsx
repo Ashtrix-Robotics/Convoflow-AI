@@ -1,7 +1,7 @@
 ﻿import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import NavBar from "../components/NavBar";
 import { DetailSkeleton } from "../components/Skeleton";
 import api from "../services/api";
@@ -63,6 +63,7 @@ function isoToLocal(iso: string | null | undefined): string {
   if (!iso) return "";
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 16);
@@ -79,6 +80,41 @@ function localToIso(val: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Normalise a date string value for an <input type="date"> field (YYYY-MM-DD).
+ * Handles ISO timestamps, DD-MM-YYYY, MM-DD-YYYY, DD/MM/YYYY, etc.
+ */
+function normaliseDateValue(raw: string): string {
+  if (!raw) return "";
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // ISO timestamp (e.g. "2024-01-15T00:00:00Z")
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10);
+  // DD-MM-YYYY or DD/MM/YYYY
+  const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmy) {
+    const [, dd, mm, yyyy] = dmy;
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+  }
+  // Try native Date parse as last resort
+  try {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch {
+    /* ignore */
+  }
+  return raw;
+}
+
+/**
+ * Normalise extra_data value for the detected input type.
+ */
+function normaliseExtraValue(val: string, inputType: InputType): string {
+  if (inputType === "date") return normaliseDateValue(val);
+  if (inputType === "datetime-local") return isoToLocal(val) || val;
+  return val;
 }
 
 const STATUS_OPTIONS = [
@@ -119,16 +155,24 @@ const INTENT_COLORS: Record<string, string> = {
 
 const INTEREST_OPTIONS = ["high", "medium", "low", "none"] as const;
 
+interface CustomFieldDef {
+  name: string;
+  label: string;
+  options: string[];
+}
+
 function EditLeadModal({
   lead,
   onClose,
   onSave,
   isSaving,
+  customFields,
 }: {
   lead: any;
   onClose: () => void;
   onSave: (data: Record<string, any>) => void;
   isSaving: boolean;
+  customFields: CustomFieldDef[];
 }) {
   const [form, setForm] = useState({
     name: lead.name ?? "",
@@ -146,9 +190,29 @@ function EditLeadModal({
     intent_category: lead.intent_category ?? "new",
   });
 
-  const [extraPairs, setExtraPairs] = useState<[string, string][]>(
-    Object.entries(lead.extra_data ?? {}).map(([k, v]) => [k, String(v)]),
-  );
+  const [extraPairs, setExtraPairs] = useState<[string, string][]>(() => {
+    const pairs: [string, string][] = Object.entries(lead.extra_data ?? {}).map(
+      ([k, v]) => {
+        const ft = detectFieldType(k);
+        return [k, normaliseExtraValue(String(v), ft)];
+      },
+    );
+    // Add custom-defined fields not already present
+    const existingKeys = new Set(pairs.map(([k]) => k));
+    for (const cf of customFields) {
+      if (!existingKeys.has(cf.name)) {
+        pairs.push([cf.name, ""]);
+      }
+    }
+    return pairs;
+  });
+
+  // Build a lookup for custom field definitions by name
+  const customFieldMap = useMemo(() => {
+    const m = new Map<string, CustomFieldDef>();
+    for (const cf of customFields) m.set(cf.name, cf);
+    return m;
+  }, [customFields]);
 
   // Per-field input type overrides for extra fields (auto-detected, user-overridable)
   const [fieldTypes, setFieldTypes] = useState<Record<string, InputType>>(
@@ -336,6 +400,7 @@ function EditLeadModal({
           </div>
           <div className="space-y-2">
             {extraPairs.map(([k, v], i) => {
+              const cfDef = customFieldMap.get(k);
               const itype = fieldTypes[k] ?? detectFieldType(k);
               return (
                 <div key={i} className="flex gap-2 items-center">
@@ -344,6 +409,7 @@ function EditLeadModal({
                     type="text"
                     placeholder="Field name"
                     value={k}
+                    disabled={!!cfDef}
                     onChange={(e) => {
                       const newKey = e.target.value;
                       setExtraPairs((p) =>
@@ -356,37 +422,66 @@ function EditLeadModal({
                         return next;
                       });
                     }}
-                    className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                  />
-                  {/* Value with smart input type */}
-                  <input
-                    type={itype}
-                    placeholder="Value"
-                    value={v}
-                    onChange={(e) =>
-                      setExtraPairs((p) =>
-                        p.map((x, idx) =>
-                          idx === i ? [x[0], e.target.value] : x,
-                        ),
-                      )
+                    className={`w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600] ${cfDef ? "bg-gray-50 text-gray-500" : ""}`}
+                    title={
+                      cfDef
+                        ? `${cfDef.label} (custom dropdown field)`
+                        : undefined
                     }
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
                   />
-                  {/* Type cycle button */}
+                  {/* Value — dropdown if custom field def exists, otherwise smart input */}
+                  {cfDef ? (
+                    <select
+                      value={v}
+                      onChange={(e) =>
+                        setExtraPairs((p) =>
+                          p.map((x, idx) =>
+                            idx === i ? [x[0], e.target.value] : x,
+                          ),
+                        )
+                      }
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                    >
+                      <option value="">— Not Set —</option>
+                      {cfDef.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={itype}
+                      placeholder="Value"
+                      value={v}
+                      onChange={(e) =>
+                        setExtraPairs((p) =>
+                          p.map((x, idx) =>
+                            idx === i ? [x[0], e.target.value] : x,
+                          ),
+                        )
+                      }
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                    />
+                  )}
+                  {/* Type cycle button — hidden for custom dropdown fields */}
+                  {!cfDef && (
+                    <button
+                      type="button"
+                      onClick={() => cycleType(k)}
+                      title={`Input type: ${itype} — click to change`}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-[#FF6600] hover:text-[#FF6600] text-xs font-bold flex-shrink-0 transition"
+                    >
+                      {INPUT_TYPE_ICONS[itype]}
+                    </button>
+                  )}
+                  {/* Remove — disabled for custom dropdown fields */}
                   <button
-                    type="button"
-                    onClick={() => cycleType(k)}
-                    title={`Input type: ${itype} — click to change`}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-[#FF6600] hover:text-[#FF6600] text-xs font-bold flex-shrink-0 transition"
-                  >
-                    {INPUT_TYPE_ICONS[itype]}
-                  </button>
-                  {/* Remove */}
-                  <button
+                    disabled={!!cfDef}
                     onClick={() =>
                       setExtraPairs((p) => p.filter((_, idx) => idx !== i))
                     }
-                    className="text-red-400 hover:text-red-600 text-lg leading-none px-1 flex-shrink-0"
+                    className={`text-lg leading-none px-1 flex-shrink-0 ${cfDef ? "text-gray-200 cursor-not-allowed" : "text-red-400 hover:text-red-600"}`}
                   >
                     ×
                   </button>
@@ -474,6 +569,24 @@ export default function LeadDetail() {
     queryFn: () => api.get("/agents/").then((r) => r.data),
   });
 
+  // Fetch custom dropdown field definitions from admin settings
+  const { data: customFields = [] } = useQuery<CustomFieldDef[]>({
+    queryKey: ["custom-field-definitions"],
+    queryFn: async () => {
+      const res = await api.get("/admin/settings");
+      const row = (res.data as any[]).find(
+        (s: any) => s.key === "custom_field_definitions",
+      );
+      if (!row?.value) return [];
+      try {
+        return JSON.parse(row.value);
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+
   const assignAgent = useMutation({
     mutationFn: (agentId: string) =>
       api
@@ -513,6 +626,7 @@ export default function LeadDetail() {
           lead={lead}
           onClose={() => setShowEditModal(false)}
           isSaving={updateLead.isPending}
+          customFields={customFields}
           onSave={(data) => {
             updateLead.mutate(data, {
               onSuccess: () => setShowEditModal(false),

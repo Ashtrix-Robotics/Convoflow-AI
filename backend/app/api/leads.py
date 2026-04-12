@@ -415,6 +415,32 @@ def bulk_lead_action(
             db.delete(lead)
             deleted += 1
 
+    elif payload.action == "update_field":
+        if not payload.field_name:
+            raise HTTPException(status_code=422, detail="'field_name' is required for update_field action")
+        fname = payload.field_name
+        fval = payload.field_value or ""
+        # Top-level writeable fields
+        _BULK_WRITABLE = {
+            "source_campaign", "ad_set", "interest_level",
+            "course_interested_in", "payment_link_url", "notes",
+        }
+        for lead_id in payload.lead_ids:
+            lead = db.query(Lead).filter(Lead.id == lead_id).first()
+            if not lead:
+                failed += 1
+                errors.append(f"{lead_id}: not found")
+                continue
+            if fname in _BULK_WRITABLE:
+                setattr(lead, fname, fval if fval else None)
+            else:
+                # Store in extra_data JSON
+                ed = dict(lead.extra_data or {})
+                ed[fname] = fval
+                lead.extra_data = ed
+            lead.updated_at = now
+            updated += 1
+
     else:
         raise HTTPException(status_code=422, detail=f"Unknown action '{payload.action}'")
 

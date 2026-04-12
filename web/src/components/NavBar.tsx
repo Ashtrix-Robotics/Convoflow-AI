@@ -72,7 +72,8 @@ export default function NavBar({ active, breadcrumb }: NavBarProps) {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
-    localStorage.clear();
+    // Only remove auth keys — preserve user preferences (leads view, filters, etc.)
+    localStorage.removeItem("access_token");
     navigate("/login");
   };
 

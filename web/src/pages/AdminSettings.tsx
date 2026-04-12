@@ -33,6 +33,200 @@ interface Setting {
   updated_at: string;
 }
 
+interface CustomFieldDef {
+  name: string;
+  label: string;
+  options: string[];
+}
+
+function CustomFieldsEditor({
+  settings,
+  onSave,
+  isSaving,
+}: {
+  settings: Setting[];
+  onSave: (value: string) => void;
+  isSaving: boolean;
+}) {
+  const raw =
+    settings.find((s) => s.key === "custom_field_definitions")?.value ?? "[]";
+  const [fields, setFields] = useState<CustomFieldDef[]>(() => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  });
+  const [newName, setNewName] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newOptions, setNewOptions] = useState("");
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editOptions, setEditOptions] = useState("");
+
+  // Sync when server data changes
+  useEffect(() => {
+    try {
+      setFields(JSON.parse(raw));
+    } catch {
+      /* keep current */
+    }
+  }, [raw]);
+
+  const handleAdd = () => {
+    const name = newName.trim().toLowerCase().replace(/\s+/g, "_");
+    const label = newLabel.trim() || name;
+    const opts = newOptions
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (!name || opts.length === 0) return;
+    const next = [...fields, { name, label, options: opts }];
+    setFields(next);
+    onSave(JSON.stringify(next));
+    setNewName("");
+    setNewLabel("");
+    setNewOptions("");
+  };
+
+  const handleRemove = (idx: number) => {
+    const next = fields.filter((_, i) => i !== idx);
+    setFields(next);
+    onSave(JSON.stringify(next));
+  };
+
+  const handleEditSave = (idx: number) => {
+    const opts = editOptions
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (opts.length === 0) return;
+    const next = fields.map((f, i) =>
+      i === idx ? { ...f, options: opts } : f,
+    );
+    setFields(next);
+    onSave(JSON.stringify(next));
+    setEditIdx(null);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5 border border-purple-200">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xl">📋</span>
+        <h3 className="font-bold text-gray-800 text-lg">
+          Custom Dropdown Fields
+        </h3>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Define fields with predefined dropdown options. These will appear as
+        dropdowns in the Edit Lead modal for all leads.
+      </p>
+
+      {fields.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {fields.map((f, idx) => (
+            <div
+              key={f.name}
+              className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800">
+                  {f.label}{" "}
+                  <span className="text-xs text-gray-400 font-normal">
+                    ({f.name})
+                  </span>
+                </p>
+                {editIdx === idx ? (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={editOptions}
+                      onChange={(e) => setEditOptions(e.target.value)}
+                      className="flex-1 border rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+                      placeholder="Option1, Option2, Option3"
+                    />
+                    <button
+                      onClick={() => handleEditSave(idx)}
+                      className="text-xs bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditIdx(null)}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {f.options.map((o) => (
+                      <span
+                        key={o}
+                        className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full"
+                      >
+                        {o}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setEditIdx(idx);
+                  setEditOptions(f.options.join(", "));
+                }}
+                className="text-xs text-gray-400 hover:text-purple-600 mt-1"
+                title="Edit options"
+              >
+                ✏
+              </button>
+              <button
+                onClick={() => handleRemove(idx)}
+                className="text-xs text-gray-400 hover:text-red-600 mt-1"
+                title="Remove field"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-2">
+        <p className="text-xs text-purple-700 font-semibold uppercase tracking-wide">
+          Add New Field
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Field key (e.g. course_type)"
+            className="border rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+          />
+          <input
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="Display label (e.g. Course Type)"
+            className="border rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+          />
+        </div>
+        <input
+          value={newOptions}
+          onChange={(e) => setNewOptions(e.target.value)}
+          placeholder="Comma-separated options: Online, Offline, Hybrid"
+          className="w-full border rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={isSaving || !newName.trim() || !newOptions.trim()}
+          className="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
+        >
+          {isSaving ? "Saving…" : "Add Field"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const qc = useQueryClient();
 
@@ -311,6 +505,17 @@ export default function AdminSettings() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Custom Dropdown Fields */}
+        {!isLoading && (
+          <CustomFieldsEditor
+            settings={settings}
+            onSave={(value) =>
+              updateMutation.mutate({ key: "custom_field_definitions", value })
+            }
+            isSaving={updateMutation.isPending}
+          />
         )}
 
         {/* Test WhatsApp send */}

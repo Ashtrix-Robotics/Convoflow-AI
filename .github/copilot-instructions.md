@@ -126,7 +126,8 @@
 | ---------------- | ------------------------------------------------------------------------ |
 | `mcp-builder`    | Building MCP servers to integrate external services                      |
 | `claude-api`     | Integrating the Claude API in Python, JavaScript, C#, or PHP             |
-| `webapp-testing` | Testing local web apps with Playwright — browser automation, screenshots |
+| `webapp-testing`            | Testing local web apps with Playwright — headless Python scripts, screenshots |
+| `playwright-live-verifier`  | Live interactive browser verification of any app — MCP tools, feature testing, real-time bug detection |
 | `skill-creator`  | Creating, modifying, benchmarking, or improving skills                   |
 
 ### Communication Skills

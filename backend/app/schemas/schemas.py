@@ -305,10 +305,12 @@ class AnalyticsOverview(BaseModel):
 
 class BulkLeadAction(BaseModel):
     lead_ids: list[str]
-    action: str                          # "change_status"|"change_intent"|"assign"|"delete"
+    action: str                          # "change_status"|"change_intent"|"assign"|"delete"|"update_field"
     status: LeadStatus | None = None
     intent_category: IntentCategory | None = None
     agent_id: str | None = None
+    field_name: str | None = None        # for update_field
+    field_value: str | None = None       # for update_field
 
 
 class BulkLeadResult(BaseModel):

@@ -120,6 +120,29 @@ function decodeFilters(s: string | null): FilterClause[] {
   }
 }
 
+// ── localStorage persistence (survives refresh, page nav, and logout) ────────
+const LS_KEY = "convoflow_leads_prefs";
+interface LeadsPrefs {
+  view: "pipeline" | "list";
+  filters: SlimFilter[];
+  fm: FilterMode;
+}
+function savePrefs(p: LeadsPrefs) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(p));
+  } catch {
+    /* quota */
+  }
+}
+function loadPrefs(): LeadsPrefs | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Google Sheets–style filter value picker ───────────────────────────────────
 function FilterValuePicker({
   options,
@@ -139,7 +162,9 @@ function FilterValuePicker({
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return q ? options.filter((o) => o.replace(/_/g, " ").toLowerCase().includes(q)) : options;
+    return q
+      ? options.filter((o) => o.replace(/_/g, " ").toLowerCase().includes(q))
+      : options;
   }, [options, search]);
 
   const handleSearchChange = (text: string) => {
@@ -231,16 +256,27 @@ export default function Leads() {
 
   const [search, setSearch] = useState("");
 
-  // Persisted state — initialised from URL params, synced back on change
-  const [view, setView] = useState<"pipeline" | "list">(() =>
-    searchParams.get("view") === "list" ? "list" : "pipeline",
-  );
-  const [filters, setFilters] = useState<FilterClause[]>(() =>
-    decodeFilters(searchParams.get("filters")),
-  );
-  const [filterMode, setFilterMode] = useState<FilterMode>(() =>
-    searchParams.get("fm") === "or" ? "or" : "and",
-  );
+  // Persisted state — URL params take priority, then localStorage, then defaults
+  const savedPrefs = useMemo(() => loadPrefs(), []);
+  const [view, setView] = useState<"pipeline" | "list">(() => {
+    const urlView = searchParams.get("view");
+    if (urlView === "list") return "list";
+    if (urlView === "pipeline") return "pipeline";
+    return savedPrefs?.view ?? "pipeline";
+  });
+  const [filters, setFilters] = useState<FilterClause[]>(() => {
+    const urlFilters = searchParams.get("filters");
+    if (urlFilters) return decodeFilters(urlFilters);
+    if (savedPrefs?.filters?.length)
+      return decodeFilters(JSON.stringify(savedPrefs.filters));
+    return [];
+  });
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => {
+    const urlFm = searchParams.get("fm");
+    if (urlFm === "or") return "or";
+    if (urlFm === "and") return "and";
+    return savedPrefs?.fm ?? "and";
+  });
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [pendingField, setPendingField] = useState("");
   const [pendingValue, setPendingValue] = useState("");
@@ -252,6 +288,8 @@ export default function Leads() {
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkIntent, setBulkIntent] = useState("");
   const [bulkAgentId, setBulkAgentId] = useState("");
+  const [bulkFieldName, setBulkFieldName] = useState("");
+  const [bulkFieldValue, setBulkFieldValue] = useState("");
   const [bulkMsg, setBulkMsg] = useState<{
     type: "success" | "error";
     text: string;
@@ -274,7 +312,7 @@ export default function Leads() {
   const [showColMenu, setShowColMenu] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
 
-  // Sync view / filters / filterMode to URL so refresh & back-navigation restore state
+  // Sync view / filters / filterMode to URL + localStorage
   useEffect(() => {
     const params = new URLSearchParams();
     if (view !== "pipeline") params.set("view", view);
@@ -282,6 +320,12 @@ export default function Leads() {
     if (encoded) params.set("filters", encoded);
     if (filterMode !== "and") params.set("fm", filterMode);
     setSearchParams(params, { replace: true });
+    // Persist to localStorage so state survives page nav and logout/login
+    savePrefs({
+      view,
+      filters: filters.map(({ field, value }) => ({ field, value })),
+      fm: filterMode,
+    });
   }, [view, filters, filterMode, setSearchParams]);
 
   useEffect(() => {
@@ -331,6 +375,8 @@ export default function Leads() {
       setBulkStatus("");
       setBulkIntent("");
       setBulkAgentId("");
+      setBulkFieldName("");
+      setBulkFieldValue("");
       setConfirmDelete(false);
       qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
@@ -352,14 +398,6 @@ export default function Leads() {
     });
   }, []);
 
-  const toggleAll = useCallback(() => {
-    if (selected.size === leads.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(leads.map((l: any) => l.id)));
-    }
-  }, [leads, selected.size]);
-
   const runBulk = () => {
     if (!bulkAction || selected.size === 0) return;
     if (bulkAction === "delete" && !confirmDelete) {
@@ -373,6 +411,10 @@ export default function Leads() {
     if (bulkAction === "change_status") payload.status = bulkStatus;
     if (bulkAction === "change_intent") payload.intent_category = bulkIntent;
     if (bulkAction === "assign") payload.agent_id = bulkAgentId;
+    if (bulkAction === "update_field") {
+      payload.field_name = bulkFieldName;
+      payload.field_value = bulkFieldValue;
+    }
     bulkMutation.mutate(payload);
   };
 
@@ -396,7 +438,13 @@ export default function Leads() {
   // Used to populate the datalist suggestions in the Add Filter panel.
   const fieldDistinctValues = useMemo<Record<string, string[]>>(() => {
     const map = new Map<string, Set<string>>();
-    const topFields = ["status", "intent_category", "interest_level", "source_campaign", "ad_set"];
+    const topFields = [
+      "status",
+      "intent_category",
+      "interest_level",
+      "source_campaign",
+      "ad_set",
+    ];
     for (const lead of leads) {
       for (const f of topFields) {
         if (!map.has(f)) map.set(f, new Set());
@@ -500,6 +548,15 @@ export default function Leads() {
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [filteredLeads, sortCol, sortDir]);
+
+  // Select all from the *filtered* result set, not the full lead list
+  const toggleAll = useCallback(() => {
+    if (selected.size === sortedLeads.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sortedLeads.map((l: any) => l.id)));
+    }
+  }, [sortedLeads, selected.size]);
 
   // Reset page whenever the sorted result set changes
   useEffect(() => {
@@ -723,6 +780,12 @@ export default function Leads() {
                 <option value="assign" className="bg-[#001838] text-white">
                   Assign Agent
                 </option>
+                <option
+                  value="update_field"
+                  className="bg-[#001838] text-white"
+                >
+                  Update Field
+                </option>
                 <option value="delete" className="bg-[#001838] text-red-300">
                   Delete
                 </option>
@@ -789,6 +852,50 @@ export default function Leads() {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {bulkAction === "update_field" && (
+                <>
+                  <select
+                    value={bulkFieldName}
+                    onChange={(e) => {
+                      setBulkFieldName(e.target.value);
+                      setBulkFieldValue("");
+                    }}
+                    className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600]"
+                  >
+                    <option value="" className="bg-[#001838] text-white">
+                      Select field…
+                    </option>
+                    {allFilterFields.map((f) => (
+                      <option
+                        key={f.key}
+                        value={f.key}
+                        className="bg-[#001838] text-white"
+                      >
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                  {bulkFieldName && (
+                    <input
+                      type="text"
+                      value={bulkFieldValue}
+                      onChange={(e) => setBulkFieldValue(e.target.value)}
+                      placeholder="New value…"
+                      list="bulk-field-values"
+                      className="text-sm bg-[#001838] border border-white/30 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#FF6600] placeholder-white/40 w-40"
+                    />
+                  )}
+                  {bulkFieldName &&
+                    (fieldDistinctValues[bulkFieldName]?.length ?? 0) > 0 && (
+                      <datalist id="bulk-field-values">
+                        {(fieldDistinctValues[bulkFieldName] ?? []).map((v) => (
+                          <option key={v} value={v} />
+                        ))}
+                      </datalist>
+                    )}
+                </>
               )}
 
               {bulkAction === "delete" && confirmDelete && (

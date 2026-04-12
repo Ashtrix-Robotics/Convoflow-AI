@@ -206,6 +206,10 @@ _KNOWN_SETTINGS = {
         "default": "false",
         "description": "When enabled, AI will auto-reply to inbound WhatsApp messages from leads.",
     },
+    "custom_field_definitions": {
+        "default": "[]",
+        "description": "JSON array of custom dropdown field definitions: [{\"name\":\"field_key\",\"label\":\"Display Name\",\"options\":[\"A\",\"B\",\"C\"]}]",
+    },
 }
 
 

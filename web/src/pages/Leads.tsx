@@ -250,20 +250,36 @@ export default function Leads() {
     return Array.from(keys).sort();
   }, [leads]);
 
-  // Collect distinct interest_level values from loaded leads (includes legacy values like "Warm", "Hot")
-  const interestLevelOptions = useMemo<readonly string[]>(() => {
-    const vals = new Set<string>();
-    let hasEmpty = false;
+  // Compute distinct values for every filterable field from the loaded leads.
+  // Used to populate the datalist suggestions in the Add Filter panel.
+  const fieldDistinctValues = useMemo<Record<string, string[]>>(() => {
+    const map = new Map<string, Set<string>>();
+    const topFields = ["status", "intent_category", "interest_level", "source_campaign", "ad_set"];
     for (const lead of leads) {
-      if (lead.interest_level) {
-        vals.add(lead.interest_level);
-      } else {
-        hasEmpty = true;
+      for (const f of topFields) {
+        if (!map.has(f)) map.set(f, new Set());
+        const val = (lead as any)[f];
+        if (val != null && String(val) !== "") {
+          map.get(f)!.add(String(val));
+        } else if (EXACT_MATCH_FIELDS.has(f)) {
+          // null values map to "none" for exact-match fields
+          map.get(f)!.add("none");
+        }
+      }
+      if (lead.extra_data && typeof lead.extra_data === "object") {
+        for (const [k, v] of Object.entries(
+          lead.extra_data as Record<string, unknown>,
+        )) {
+          if (!map.has(k)) map.set(k, new Set());
+          if (v != null && String(v) !== "") map.get(k)!.add(String(v));
+        }
       }
     }
-    const sorted = Array.from(vals).sort();
-    if (hasEmpty) sorted.push("none");
-    return sorted;
+    const result: Record<string, string[]> = {};
+    for (const [key, vals] of map.entries()) {
+      result[key] = Array.from(vals).sort((a, b) => a.localeCompare(b));
+    }
+    return result;
   }, [leads]);
 
   // Multi-filter evaluation (client-side AND/OR)
@@ -289,23 +305,14 @@ export default function Leads() {
   }, [leads, filters, filterMode]);
 
   // All available filter fields (standard + discovered extra keys)
-  // interest_level options are derived from actual data to include legacy values (e.g. "Warm", "Hot")
   const allFilterFields = useMemo(
     () => [
-      ...FILTER_FIELDS.map((f) =>
-        f.key === "interest_level"
-          ? { ...f, options: interestLevelOptions }
-          : f,
-      ),
+      ...FILTER_FIELDS.map((f) => ({ key: f.key, label: f.label })),
       ...extraKeys
         .filter((k) => !FILTER_FIELDS.some((f) => f.key === k))
-        .map((k) => ({ key: k, label: k, options: null as null })),
+        .map((k) => ({ key: k, label: k })),
     ],
-    [extraKeys, interestLevelOptions],
-  );
-
-  const selectedFilterField = allFilterFields.find(
-    (f) => f.key === pendingField,
+    [extraKeys],
   );
 
   const addFilter = () => {
@@ -411,31 +418,25 @@ export default function Leads() {
                       </option>
                     ))}
                   </select>
-                  {pendingField &&
-                    (selectedFilterField?.options ? (
-                      <select
-                        value={pendingValue}
-                        onChange={(e) => setPendingValue(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                      >
-                        <option value="">Choose value…</option>
-                        {selectedFilterField.options.map((o) => (
-                          <option key={o} value={o} className="capitalize">
-                            {o.replace(/_/g, " ")}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
+                  {pendingField && (
+                    <>
                       <input
                         type="text"
-                        placeholder="Filter value…"
+                        list={`filter-val-${pendingField}`}
+                        placeholder="Type or choose a value…"
                         value={pendingValue}
                         onChange={(e) => setPendingValue(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && addFilter()}
                         autoFocus
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
                       />
-                    ))}
+                      <datalist id={`filter-val-${pendingField}`}>
+                        {(fieldDistinctValues[pendingField] ?? []).map((v) => (
+                          <option key={v} value={v} />
+                        ))}
+                      </datalist>
+                    </>
+                  )}
                   <button
                     onClick={addFilter}
                     disabled={!pendingField || !pendingValue.trim()}

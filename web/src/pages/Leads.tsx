@@ -92,6 +92,14 @@ const FILTER_FIELDS = [
   { key: "ad_set", label: "Ad Set", options: null as null },
 ];
 
+// Fields that use exact match (not substring) when filtering.
+// Free-text fields (Campaign, Ad Set, extra_data) keep substring matching.
+const EXACT_MATCH_FIELDS = new Set([
+  "status",
+  "intent_category",
+  "interest_level",
+]);
+
 export default function Leads() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -242,6 +250,22 @@ export default function Leads() {
     return Array.from(keys).sort();
   }, [leads]);
 
+  // Collect distinct interest_level values from loaded leads (includes legacy values like "Warm", "Hot")
+  const interestLevelOptions = useMemo<readonly string[]>(() => {
+    const vals = new Set<string>();
+    let hasEmpty = false;
+    for (const lead of leads) {
+      if (lead.interest_level) {
+        vals.add(lead.interest_level);
+      } else {
+        hasEmpty = true;
+      }
+    }
+    const sorted = Array.from(vals).sort();
+    if (hasEmpty) sorted.push("none");
+    return sorted;
+  }, [leads]);
+
   // Multi-filter evaluation (client-side AND/OR)
   const filteredLeads = useMemo(() => {
     if (filters.length === 0) return leads;
@@ -251,6 +275,11 @@ export default function Leads() {
           l[field] != null
             ? String(l[field])
             : String(l.extra_data?.[field] ?? "");
+        if (EXACT_MATCH_FIELDS.has(field)) {
+          // null/empty in DB is treated as "none" for option fields
+          const effectiveRaw = raw === "" ? "none" : raw.toLowerCase();
+          return effectiveRaw === value.toLowerCase();
+        }
         return raw.toLowerCase().includes(value.toLowerCase());
       });
       return filterMode === "and"
@@ -260,14 +289,19 @@ export default function Leads() {
   }, [leads, filters, filterMode]);
 
   // All available filter fields (standard + discovered extra keys)
+  // interest_level options are derived from actual data to include legacy values (e.g. "Warm", "Hot")
   const allFilterFields = useMemo(
     () => [
-      ...FILTER_FIELDS,
+      ...FILTER_FIELDS.map((f) =>
+        f.key === "interest_level"
+          ? { ...f, options: interestLevelOptions }
+          : f,
+      ),
       ...extraKeys
         .filter((k) => !FILTER_FIELDS.some((f) => f.key === k))
         .map((k) => ({ key: k, label: k, options: null as null })),
     ],
-    [extraKeys],
+    [extraKeys, interestLevelOptions],
   );
 
   const selectedFilterField = allFilterFields.find(

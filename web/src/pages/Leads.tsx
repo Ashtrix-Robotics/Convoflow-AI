@@ -73,9 +73,21 @@ type FilterClause = { id: string; field: string; value: string };
 type FilterMode = "and" | "or";
 
 const FILTER_FIELDS = [
-  { key: "status", label: "Status", options: LEAD_STATUSES as readonly string[] },
-  { key: "intent_category", label: "Intent", options: INTENT_CATEGORIES as readonly string[] },
-  { key: "interest_level", label: "Interest", options: ["high", "medium", "low", "none"] as readonly string[] },
+  {
+    key: "status",
+    label: "Status",
+    options: LEAD_STATUSES as readonly string[],
+  },
+  {
+    key: "intent_category",
+    label: "Intent",
+    options: INTENT_CATEGORIES as readonly string[],
+  },
+  {
+    key: "interest_level",
+    label: "Interest",
+    options: ["high", "medium", "low", "none"] as readonly string[],
+  },
   { key: "source_campaign", label: "Campaign", options: null as null },
   { key: "ad_set", label: "Ad Set", options: null as null },
 ];
@@ -126,7 +138,10 @@ export default function Leads() {
     const handler = (e: MouseEvent) => {
       if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node))
         setShowColMenu(false);
-      if (addFilterRef.current && !addFilterRef.current.contains(e.target as Node))
+      if (
+        addFilterRef.current &&
+        !addFilterRef.current.contains(e.target as Node)
+      )
         setShowAddFilter(false);
     };
     document.addEventListener("mousedown", handler);
@@ -233,10 +248,14 @@ export default function Leads() {
     return leads.filter((l: any) => {
       const results = filters.map(({ field, value }) => {
         const raw =
-          l[field] != null ? String(l[field]) : String(l.extra_data?.[field] ?? "");
+          l[field] != null
+            ? String(l[field])
+            : String(l.extra_data?.[field] ?? "");
         return raw.toLowerCase().includes(value.toLowerCase());
       });
-      return filterMode === "and" ? results.every(Boolean) : results.some(Boolean);
+      return filterMode === "and"
+        ? results.every(Boolean)
+        : results.some(Boolean);
     });
   }, [leads, filters, filterMode]);
 
@@ -251,13 +270,19 @@ export default function Leads() {
     [extraKeys],
   );
 
-  const selectedFilterField = allFilterFields.find((f) => f.key === pendingField);
+  const selectedFilterField = allFilterFields.find(
+    (f) => f.key === pendingField,
+  );
 
   const addFilter = () => {
     if (!pendingField || !pendingValue.trim()) return;
     setFilters((prev) => [
       ...prev,
-      { id: `${pendingField}-${Date.now()}`, field: pendingField, value: pendingValue.trim() },
+      {
+        id: `${pendingField}-${Date.now()}`,
+        field: pendingField,
+        value: pendingValue.trim(),
+      },
     ]);
     setPendingValue("");
     setShowAddFilter(false);
@@ -466,7 +491,8 @@ export default function Leads() {
         {filters.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-3 max-w-7xl mx-auto">
             {filters.map(({ id, field, value }) => {
-              const fieldLabel = allFilterFields.find((f) => f.key === field)?.label ?? field;
+              const fieldLabel =
+                allFilterFields.find((f) => f.key === field)?.label ?? field;
               return (
                 <span
                   key={id}
@@ -842,7 +868,11 @@ export default function Leads() {
                         {lead.next_followup_at
                           ? new Date(lead.next_followup_at).toLocaleDateString(
                               undefined,
-                              { month: "short", day: "numeric", year: "2-digit" },
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "2-digit",
+                              },
                             )
                           : "—"}
                       </td>

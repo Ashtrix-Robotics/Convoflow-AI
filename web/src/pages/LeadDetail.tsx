@@ -8,25 +8,51 @@ import api from "../services/api";
 
 // ── Field-type helpers ─────────────────────────────────────────────────────────
 
-type InputType = "text" | "date" | "datetime-local" | "tel" | "email" | "number" | "url";
+type InputType =
+  | "text"
+  | "date"
+  | "datetime-local"
+  | "tel"
+  | "email"
+  | "number"
+  | "url";
 
 const INPUT_TYPE_CYCLE: InputType[] = [
-  "text", "date", "datetime-local", "tel", "email", "number", "url",
+  "text",
+  "date",
+  "datetime-local",
+  "tel",
+  "email",
+  "number",
+  "url",
 ];
 
 const INPUT_TYPE_ICONS: Record<InputType, string> = {
-  text: "Aa", date: "📅", "datetime-local": "🕒",
-  tel: "☎", email: "@", number: "#", url: "🔗",
+  text: "Aa",
+  date: "📅",
+  "datetime-local": "🕒",
+  tel: "☎",
+  email: "@",
+  number: "#",
+  url: "🔗",
 };
 
 function detectFieldType(key: string): InputType {
   const lk = key.toLowerCase().replace(/[^a-z]/g, " ");
-  if (/\bdate\b|\bday\b|\bdob\b|\bbirth\b|\bjoining\b|\badmission\b|\bregistration\b/.test(lk))
+  if (
+    /\bdate\b|\bday\b|\bdob\b|\bbirth\b|\bjoining\b|\badmission\b|\bregistration\b/.test(
+      lk,
+    )
+  )
     return "date";
   if (/\btime\b|\bschedule\b|\bat\b/.test(lk)) return "datetime-local";
   if (/\bphone\b|\bmobile\b|\bcell\b/.test(lk)) return "tel";
   if (/\bemail\b/.test(lk)) return "email";
-  if (/\bfee\b|\bprice\b|\bscore\b|\bgrade\b|\bage\b|\bcount\b|\bamount\b|\bnum\b/.test(lk))
+  if (
+    /\bfee\b|\bprice\b|\bscore\b|\bgrade\b|\bage\b|\bcount\b|\bamount\b|\bnum\b/.test(
+      lk,
+    )
+  )
     return "number";
   if (/\burl\b|\blink\b|\bwebsite\b/.test(lk)) return "url";
   return "text";
@@ -40,13 +66,19 @@ function isoToLocal(iso: string | null | undefined): string {
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 16);
-  } catch { return ""; }
+  } catch {
+    return "";
+  }
 }
 
 /** Convert a datetime-local input value back to ISO string (UTC) */
 function localToIso(val: string): string | null {
   if (!val) return null;
-  try { return new Date(val).toISOString(); } catch { return null; }
+  try {
+    return new Date(val).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 const STATUS_OPTIONS = [
@@ -119,13 +151,15 @@ function EditLeadModal({
   );
 
   // Per-field input type overrides for extra fields (auto-detected, user-overridable)
-  const [fieldTypes, setFieldTypes] = useState<Record<string, InputType>>(() => {
-    const init: Record<string, InputType> = {};
-    for (const [k] of Object.entries(lead.extra_data ?? {})) {
-      init[k] = detectFieldType(k);
-    }
-    return init;
-  });
+  const [fieldTypes, setFieldTypes] = useState<Record<string, InputType>>(
+    () => {
+      const init: Record<string, InputType> = {};
+      for (const [k] of Object.entries(lead.extra_data ?? {})) {
+        init[k] = detectFieldType(k);
+      }
+      return init;
+    },
+  );
 
   const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -179,7 +213,9 @@ function EditLeadModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {STANDARD_TEXT_FIELDS.map(([key, label, inputType]) => (
             <div key={key}>
-              <label className="block text-xs text-gray-500 mb-1">{label}</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                {label}
+              </label>
               <input
                 type={inputType}
                 value={(form as any)[key]}
@@ -198,28 +234,36 @@ function EditLeadModal({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Intent Category */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Intent Category</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Intent Category
+            </label>
             <select
               value={form.intent_category}
               onChange={(e) => f("intent_category", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
             >
               {INTENT_OPTIONS_ALL.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Interest Level */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Interest Level</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Interest Level
+            </label>
             <select
               value={form.interest_level}
               onChange={(e) => f("interest_level", e.target.value)}
@@ -227,14 +271,18 @@ function EditLeadModal({
             >
               <option value="">— Not Set —</option>
               {INTEREST_OPTIONS.map((o) => (
-                <option key={o} value={o} className="capitalize">{o}</option>
+                <option key={o} value={o} className="capitalize">
+                  {o}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Callback Scheduled At */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Callback Scheduled At</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Callback Scheduled At
+            </label>
             <input
               type="datetime-local"
               value={form.callback_scheduled_at}
@@ -245,7 +293,9 @@ function EditLeadModal({
 
           {/* Next Follow-up At */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Next Follow-up At</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Next Follow-up At
+            </label>
             <input
               type="datetime-local"
               value={form.next_followup_at}
@@ -315,7 +365,9 @@ function EditLeadModal({
                     value={v}
                     onChange={(e) =>
                       setExtraPairs((p) =>
-                        p.map((x, idx) => (idx === i ? [x[0], e.target.value] : x)),
+                        p.map((x, idx) =>
+                          idx === i ? [x[0], e.target.value] : x,
+                        ),
                       )
                     }
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"

@@ -245,7 +245,9 @@ export default function Leads() {
   }, [filteredLeads, sortCol, sortDir]);
 
   // Reset page whenever the sorted result set changes
-  useEffect(() => { setPage(1); }, [sortedLeads]);
+  useEffect(() => {
+    setPage(1);
+  }, [sortedLeads]);
 
   const totalPages = Math.ceil(sortedLeads.length / PAGE_SIZE);
   const pagedLeads = useMemo(() => {
@@ -529,7 +531,11 @@ export default function Leads() {
         {!isLoading && view === "pipeline" && (
           <div className="flex gap-4 overflow-x-auto pb-2 max-w-7xl mx-auto items-start">
             {grouped.map((col) => (
-              <div key={col.key} className="min-w-[260px] flex-1 flex flex-col" style={{ maxHeight: "calc(100vh - 200px)" }}>
+              <div
+                key={col.key}
+                className="min-w-[260px] flex-1 flex flex-col"
+                style={{ maxHeight: "calc(100vh - 200px)" }}
+              >
                 <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                   <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
                   <h3 className="font-semibold text-sm text-gray-700">
@@ -594,121 +600,142 @@ export default function Leads() {
               className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm"
               style={{ maxHeight: "calc(100vh - 220px)" }}
             >
-            <table className="min-w-full">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase sticky top-0 z-10">
-                <tr>
-                  <th className="px-4 py-3 w-8">
-                    <input
-                      type="checkbox"
-                      checked={
-                        sortedLeads.length > 0 &&
-                        selected.size === sortedLeads.length
-                      }
-                      onChange={toggleAll}
-                      className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
-                      title="Select all"
-                    />
-                  </th>
-                  {(["Name", "Phone", "Status", "Intent", "Campaign", "Updated"] as const).map((col) => (
-                    <th
-                      key={col}
-                      className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
-                      onClick={() => handleSort(col)}
-                    >
-                      {col}
-                      <span className="ml-1 inline-block w-3 text-gray-400">
-                        {sortCol === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-                      </span>
-                    </th>
-                  ))}
-                  {Array.from(visibleExtraCols).map((col) => (
-                    <th
-                      key={col}
-                      className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
-                      onClick={() => handleSort(col)}
-                    >
-                      {col}
-                      <span className="ml-1 inline-block w-3 text-gray-400">
-                        {sortCol === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {pagedLeads.map((lead: any) => (
-                  <tr
-                    key={lead.id}
-                    className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
-                  >
-                    <td
-                      className="px-4 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+              <table className="min-w-full">
+                <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 w-8">
                       <input
                         type="checkbox"
-                        checked={selected.has(lead.id)}
-                        onChange={() => toggleSelect(lead.id)}
+                        checked={
+                          sortedLeads.length > 0 &&
+                          selected.size === sortedLeads.length
+                        }
+                        onChange={toggleAll}
                         className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                        title="Select all"
                       />
-                    </td>
-                    <td
-                      className="px-4 py-3 text-sm font-medium text-gray-800 cursor-pointer"
-                      onClick={() => navigate(`/leads/${lead.id}`)}
-                    >
-                      {lead.name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {lead.phone}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
-                        {lead.status?.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.intent_category && (
-                        <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${INTENT_COLORS[lead.intent_category] ?? "bg-gray-100"}`}
-                        >
-                          {lead.intent_category.replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {lead.source_campaign || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {lead.updated_at
-                        ? formatDistanceToNow(new Date(lead.updated_at), {
-                            addSuffix: true,
-                          })
-                        : "—"}
-                    </td>
-                    {Array.from(visibleExtraCols).map((col) => (
-                      <td
+                    </th>
+                    {(
+                      [
+                        "Name",
+                        "Phone",
+                        "Status",
+                        "Intent",
+                        "Campaign",
+                        "Updated",
+                      ] as const
+                    ).map((col) => (
+                      <th
                         key={col}
-                        className="px-4 py-3 text-xs text-gray-500 max-w-[160px] truncate"
+                        className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
+                        onClick={() => handleSort(col)}
                       >
-                        {lead.extra_data?.[col] != null
-                          ? String(lead.extra_data[col])
-                          : "—"}
-                      </td>
+                        {col}
+                        <span className="ml-1 inline-block w-3 text-gray-400">
+                          {sortCol === col
+                            ? sortDir === "asc"
+                              ? "↑"
+                              : "↓"
+                            : "↕"}
+                        </span>
+                      </th>
+                    ))}
+                    {Array.from(visibleExtraCols).map((col) => (
+                      <th
+                        key={col}
+                        className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
+                        onClick={() => handleSort(col)}
+                      >
+                        {col}
+                        <span className="ml-1 inline-block w-3 text-gray-400">
+                          {sortCol === col
+                            ? sortDir === "asc"
+                              ? "↑"
+                              : "↓"
+                            : "↕"}
+                        </span>
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {sortedLeads.length === 0 && (
-              <p className="text-gray-400 text-center py-12">No leads found</p>
-            )}
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pagedLeads.map((lead: any) => (
+                    <tr
+                      key={lead.id}
+                      className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
+                    >
+                      <td
+                        className="px-4 py-3"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(lead.id)}
+                          onChange={() => toggleSelect(lead.id)}
+                          className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                        />
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm font-medium text-gray-800 cursor-pointer"
+                        onClick={() => navigate(`/leads/${lead.id}`)}
+                      >
+                        {lead.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {lead.phone}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
+                          {lead.status?.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {lead.intent_category && (
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${INTENT_COLORS[lead.intent_category] ?? "bg-gray-100"}`}
+                          >
+                            {lead.intent_category.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {lead.source_campaign || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {lead.updated_at
+                          ? formatDistanceToNow(new Date(lead.updated_at), {
+                              addSuffix: true,
+                            })
+                          : "—"}
+                      </td>
+                      {Array.from(visibleExtraCols).map((col) => (
+                        <td
+                          key={col}
+                          className="px-4 py-3 text-xs text-gray-500 max-w-[160px] truncate"
+                        >
+                          {lead.extra_data?.[col] != null
+                            ? String(lead.extra_data[col])
+                            : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {sortedLeads.length === 0 && (
+                <p className="text-gray-400 text-center py-12">
+                  No leads found
+                </p>
+              )}
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-3 px-1">
                 <p className="text-xs text-gray-400">
-                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sortedLeads.length)} of {sortedLeads.length} leads
+                  Showing {(page - 1) * PAGE_SIZE + 1}–
+                  {Math.min(page * PAGE_SIZE, sortedLeads.length)} of{" "}
+                  {sortedLeads.length} leads
                 </p>
                 <div className="flex items-center gap-1">
                   <button
@@ -719,15 +746,24 @@ export default function Leads() {
                     ← Prev
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .filter(
+                      (p) =>
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                    )
                     .reduce<(number | "…")[]>((acc, p, i, arr) => {
-                      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("…");
+                      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1)
+                        acc.push("…");
                       acc.push(p);
                       return acc;
                     }, [])
                     .map((p, i) =>
                       p === "…" ? (
-                        <span key={`ellipsis-${i}`} className="px-2 text-gray-400 text-xs">…</span>
+                        <span
+                          key={`ellipsis-${i}`}
+                          className="px-2 text-gray-400 text-xs"
+                        >
+                          …
+                        </span>
                       ) : (
                         <button
                           key={p}
@@ -740,7 +776,7 @@ export default function Leads() {
                         >
                           {p}
                         </button>
-                      )
+                      ),
                     )}
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -753,7 +789,9 @@ export default function Leads() {
               </div>
             )}
             {totalPages <= 1 && sortedLeads.length > 0 && (
-              <p className="text-xs text-gray-400 mt-2 text-right">{sortedLeads.length} leads</p>
+              <p className="text-xs text-gray-400 mt-2 text-right">
+                {sortedLeads.length} leads
+              </p>
             )}
           </div>
         )}

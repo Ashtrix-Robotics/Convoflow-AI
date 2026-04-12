@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import NavBar from "../components/NavBar";
@@ -100,15 +100,149 @@ const EXACT_MATCH_FIELDS = new Set([
   "interest_level",
 ]);
 
+// ── URL helpers ──────────────────────────────────────────────────────────────
+type SlimFilter = { field: string; value: string };
+function encodeFilters(f: FilterClause[]): string {
+  if (f.length === 0) return "";
+  return encodeURIComponent(
+    JSON.stringify(f.map(({ field, value }) => ({ field, value }))),
+  );
+}
+function decodeFilters(s: string | null): FilterClause[] {
+  if (!s) return [];
+  try {
+    const arr: SlimFilter[] = JSON.parse(decodeURIComponent(s));
+    return arr.map((item, i) => ({
+      id: `${item.field}-${i}`,
+      field: item.field,
+      value: item.value,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ── Google Sheets–style filter value picker ───────────────────────────────────
+function FilterValuePicker({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [search, setSearch] = useState(value.replace(/_/g, " "));
+
+  // Keep search in sync if parent resets value
+  useEffect(() => {
+    if (value === "") setSearch("");
+  }, [value]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? options.filter((o) => o.replace(/_/g, " ").toLowerCase().includes(q)) : options;
+  }, [options, search]);
+
+  const handleSearchChange = (text: string) => {
+    setSearch(text);
+    // Treat typed text as the value (enabling custom free-text)
+    onChange(text.trim());
+  };
+
+  const handleSelect = (o: string) => {
+    setSearch(o.replace(/_/g, " "));
+    onChange(o);
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      {/* Search row */}
+      <div className="px-2 pt-2 pb-1.5 border-b border-gray-100">
+        <div className="relative">
+          <svg
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <input
+            type="text"
+            autoFocus
+            placeholder="Search…"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full pl-7 pr-2 py-1 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#FF6600] focus:border-[#FF6600]"
+          />
+        </div>
+      </div>
+      {/* Options list */}
+      <ul className="max-h-44 overflow-y-auto py-1">
+        {filtered.length === 0 ? (
+          <li className="px-3 py-2 text-xs text-gray-400 text-center italic">
+            {search ? `Press Apply to use "${search}"` : "No values available"}
+          </li>
+        ) : (
+          filtered.map((o) => {
+            const isSelected =
+              value !== "" &&
+              (value.toLowerCase() === o.toLowerCase() ||
+                value.replace(/_/g, " ").toLowerCase() ===
+                  o.replace(/_/g, " ").toLowerCase());
+            return (
+              <li
+                key={o}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(o);
+                }}
+                className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition hover:bg-orange-50 ${
+                  isSelected
+                    ? "bg-orange-50 text-[#FF6600] font-medium"
+                    : "text-gray-700"
+                }`}
+              >
+                <span
+                  className={`w-4 flex-shrink-0 text-xs ${
+                    isSelected ? "text-[#FF6600]" : "text-transparent"
+                  }`}
+                >
+                  ✓
+                </span>
+                <span className="capitalize leading-snug">
+                  {o.replace(/_/g, " ")}
+                </span>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+}
+
 export default function Leads() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<"pipeline" | "list">("pipeline");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Multi-filter
-  const [filters, setFilters] = useState<FilterClause[]>([]);
-  const [filterMode, setFilterMode] = useState<FilterMode>("and");
+  const [search, setSearch] = useState("");
+
+  // Persisted state — initialised from URL params, synced back on change
+  const [view, setView] = useState<"pipeline" | "list">(() =>
+    searchParams.get("view") === "list" ? "list" : "pipeline",
+  );
+  const [filters, setFilters] = useState<FilterClause[]>(() =>
+    decodeFilters(searchParams.get("filters")),
+  );
+  const [filterMode, setFilterMode] = useState<FilterMode>(() =>
+    searchParams.get("fm") === "or" ? "or" : "and",
+  );
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [pendingField, setPendingField] = useState("");
   const [pendingValue, setPendingValue] = useState("");
@@ -141,6 +275,16 @@ export default function Leads() {
   );
   const [showColMenu, setShowColMenu] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
+
+  // Sync view / filters / filterMode to URL so refresh & back-navigation restore state
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (view !== "pipeline") params.set("view", view);
+    const encoded = encodeFilters(filters);
+    if (encoded) params.set("filters", encoded);
+    if (filterMode !== "and") params.set("fm", filterMode);
+    setSearchParams(params, { replace: true });
+  }, [view, filters, filterMode, setSearchParams]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -419,23 +563,12 @@ export default function Leads() {
                     ))}
                   </select>
                   {pendingField && (
-                    <>
-                      <input
-                        type="text"
-                        list={`filter-val-${pendingField}`}
-                        placeholder="Type or choose a value…"
-                        value={pendingValue}
-                        onChange={(e) => setPendingValue(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && addFilter()}
-                        autoFocus
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                      />
-                      <datalist id={`filter-val-${pendingField}`}>
-                        {(fieldDistinctValues[pendingField] ?? []).map((v) => (
-                          <option key={v} value={v} />
-                        ))}
-                      </datalist>
-                    </>
+                    <FilterValuePicker
+                      key={pendingField}
+                      options={fieldDistinctValues[pendingField] ?? []}
+                      value={pendingValue}
+                      onChange={setPendingValue}
+                    />
                   )}
                   <button
                     onClick={addFilter}

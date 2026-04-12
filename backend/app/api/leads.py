@@ -85,8 +85,6 @@ async def inbound_lead(
             existing.email = lead_in.email
         if lead_in.source_campaign:
             existing.source_campaign = lead_in.source_campaign
-        if lead_in.google_sheet_row_id:
-            existing.google_sheet_row_id = lead_in.google_sheet_row_id
         
         # Merge extra payload columns into extra_data
         if hasattr(lead_in, "model_extra") and lead_in.model_extra:
@@ -126,7 +124,6 @@ async def inbound_lead(
         email=lead_in.email,
         source_campaign=lead_in.source_campaign,
         ad_set=lead_in.ad_set,
-        google_sheet_row_id=lead_in.google_sheet_row_id,
         extra_data=extra_data,
         assigned_agent_id=assigned_agent_id,
         status="new",

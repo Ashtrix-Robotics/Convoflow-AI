@@ -534,8 +534,8 @@ export default function Leads() {
 
         {/* List view */}
         {!isLoading && view === "list" && (
-          <div className="max-w-7xl mx-auto">
-            <table className="w-full bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="max-w-7xl mx-auto overflow-x-auto">
+            <table className="min-w-full bg-white rounded-xl shadow-sm overflow-hidden">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
                 <tr>
                   <th className="px-4 py-3 w-8">

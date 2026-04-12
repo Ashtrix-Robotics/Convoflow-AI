@@ -11,31 +11,41 @@ Setup:
 
 import json
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Column layout — MUST match HEADERS order below
-HEADERS = [
-    "Lead ID",
-    "Name",
-    "Phone",
-    "Email",
-    "Campaign",
-    "Ad Set",
-    "Status",
-    "Intent",
-    "Assigned Agent",
-    "Interest Level",
-    "Course Interested In",
-    "Notes",
-    "Follow-up Count",
-    "Created At",
-    "Updated At",
-]
+# Maps Lead ORM field names → possible header names in the Google Sheet (lowercase).
+# First matching header wins when pushing updates back.
+PUSH_FIELD_TO_COLUMN: dict[str, list[str]] = {
+    "name": ["name"],
+    "phone": ["phone", "phone number"],
+    "email": ["email"],
+    "source_campaign": ["campaign", "source_campaign"],
+    "ad_set": ["ad set", "ad_set", "lead source"],
+    "interest_level": ["interest level", "lead temperature"],
+    "course_interested_in": ["course interested in", "academy preference"],
+    "status": ["status"],
+    "notes": ["notes", "detailed response"],
+}
+
+# Possible header names for the phone column (lowercase)
+_PHONE_HEADERS = ("phone", "phone number")
+# Possible header names for the timestamp column used as part of composite key (lowercase)
+_TIMESTAMP_HEADERS = ("timestamp", "date of lead", "date", "created at")
 
 _client = None         # lazy-initialised gspread client
 _last_auth_error = ""  # last error from _get_client(), exposed via status endpoint
+
+
+def _col_letter(col: int) -> str:
+    """Convert a 1-based column number to an A1-notation column letter (e.g. 1→A, 27→AA)."""
+    result = ""
+    while col > 0:
+        col, rem = divmod(col - 1, 26)
+        result = chr(65 + rem) + result
+    return result
 
 
 def _get_client():
@@ -129,68 +139,110 @@ def _get_sheet():
         return None
 
 
-def _ensure_headers(sheet) -> None:
-    """Write header row on row 1 if the sheet is empty."""
-    try:
-        if not sheet.row_values(1):
-            sheet.append_row(HEADERS, value_input_option="RAW")
-    except Exception as exc:
-        logger.error("Failed to write sheet headers: %s", exc)
+def _phone_suffix(phone: str) -> str:
+    """Extract the last 10 digits from a phone string for suffix matching."""
+    digits = re.sub(r"\D+", "", phone or "")
+    return digits[-10:] if len(digits) >= 10 else digits
 
 
-def _lead_row(lead: Any) -> list[str]:
-    """Serialize a Lead ORM object to a flat row matching HEADERS."""
-    agent_name = ""
-    try:
-        agent_name = lead.assigned_agent.name if lead.assigned_agent else ""
-    except Exception:
-        pass
+def _build_phone_row_index(
+    all_values: list[list[str]],
+    col_index: dict[str, int],
+) -> dict[str, int]:
+    """
+    Build a mapping of phone-suffix → sheet row number from the sheet data.
+    Uses the last 10 digits of each phone so that +91XXXXXXXXXX, 91XXXXXXXXXX,
+    and XXXXXXXXXX all resolve to the same row.
+    """
+    phone_col = next(
+        (col_index[h] for h in _PHONE_HEADERS if h in col_index),
+        None,
+    )
+    if not phone_col:
+        return {}
 
-    return [
-        str(lead.id),
-        str(lead.name or ""),
-        str(lead.phone or ""),
-        str(lead.email or ""),
-        str(lead.source_campaign or ""),
-        str(lead.ad_set or ""),
-        str(lead.status or ""),
-        str(lead.intent_category or ""),
-        agent_name,
-        str(lead.interest_level or ""),
-        str(lead.course_interested_in or ""),
-        str(lead.notes or ""),
-        str(lead.followup_count),
-        lead.created_at.isoformat() if lead.created_at else "",
-        lead.updated_at.isoformat() if lead.updated_at else "",
-    ]
+    index: dict[str, int] = {}
+    for row_idx, row in enumerate(all_values[1:], start=2):
+        cell_val = row[phone_col - 1].strip() if len(row) >= phone_col else ""
+        suffix = _phone_suffix(cell_val)
+        if suffix:
+            index[suffix] = row_idx
+    return index
+
+
+def _find_row_by_phone(
+    lead_phone: str,
+    phone_row_index: dict[str, int],
+) -> int | None:
+    """Look up a row number from the phone suffix index."""
+    suffix = _phone_suffix(lead_phone)
+    return phone_row_index.get(suffix) if suffix else None
+
+
+def _collect_field_pairs(
+    lead: Any,
+    col_index: dict[str, int],
+) -> list[tuple[int, str]]:
+    """Build (1-based column index, value) pairs for all mappable fields."""
+    pairs: list[tuple[int, str]] = []
+    for field, candidates in PUSH_FIELD_TO_COLUMN.items():
+        value = getattr(lead, field, None)
+        if value is None:
+            continue
+        for hdr in candidates:
+            if hdr in col_index:
+                pairs.append((col_index[hdr], str(value)))
+                break
+    if lead.extra_data:
+        for key, value in lead.extra_data.items():
+            if value is None:
+                continue
+            nk = key.strip().lower()
+            if nk in col_index:
+                pairs.append((col_index[nk], str(value)))
+    return pairs
 
 
 def upsert_lead(lead: Any) -> None:
     """
-    Insert or update a lead's row in Google Sheets.
-    Keyed on column A (Lead ID). Called as a background task — never raises.
+    Update a lead's row in the configured Google Sheet.
+
+    Reads the sheet's actual column headers and maps standard Lead fields + extra_data
+    keys to matching columns. Locates the existing row by matching the phone number
+    suffix (last 10 digits). If the lead is not found, a new row is appended.
+    Called as a background task — never raises.
     """
     sheet = _get_sheet()
     if not sheet:
         return
 
     try:
-        _ensure_headers(sheet)
-        row = _lead_row(lead)
-        lead_id = str(lead.id)
+        all_values = sheet.get_all_values()
+        if not all_values:
+            logger.warning("Sheet has no data; cannot sync lead %s", lead.id)
+            return
 
-        try:
-            cell = sheet.find(lead_id, in_column=1)
-            # Update in place — gspread 6.x: values first, range second
-            end_col = chr(ord("A") + len(HEADERS) - 1)
-            sheet.update(
-                [row],
-                f"A{cell.row}:{end_col}{cell.row}",
-                value_input_option="RAW",
-            )
-        except Exception:
-            # Cell not found → append as new row
-            sheet.append_row(row, value_input_option="RAW")
+        header_row = all_values[0]
+        col_index: dict[str, int] = {
+            h.strip().lower(): i + 1 for i, h in enumerate(header_row)
+        }
+
+        phone_row_index = _build_phone_row_index(all_values, col_index)
+        target_row = _find_row_by_phone(str(lead.phone or ""), phone_row_index)
+        pairs = _collect_field_pairs(lead, col_index)
+
+        if target_row:
+            updates = [
+                {"range": f"{_col_letter(col)}{target_row}", "values": [[value]]}
+                for col, value in pairs
+            ]
+            if updates:
+                sheet.batch_update(updates, value_input_option="RAW")
+        else:
+            new_row = [""] * len(header_row)
+            for col, value in pairs:
+                new_row[col - 1] = value
+            sheet.append_row(new_row, value_input_option="RAW")
 
     except Exception as exc:
         logger.error("Google Sheets upsert failed for lead %s: %s", lead.id, exc)
@@ -198,19 +250,54 @@ def upsert_lead(lead: Any) -> None:
 
 def bulk_sync(leads: list[Any]) -> int:
     """
-    Bulk-write all leads to the sheet (clears existing data, rewrites from scratch).
-    Returns number of rows written. Called from admin endpoint.
+    Push all leads to the configured Google Sheet in a single batch operation.
+    Updates existing rows matched by phone number suffix.
+    Appends new rows for leads not found in the sheet.
+    Returns count of leads processed.
     """
     sheet = _get_sheet()
     if not sheet:
         return 0
 
     try:
-        rows = [HEADERS] + [_lead_row(lead) for lead in leads]
-        sheet.clear()
-        # gspread 6.x: values first, range_name second
-        sheet.update(rows, "A1", value_input_option="RAW")
-        return len(rows) - 1  # exclude header
+        all_values = sheet.get_all_values()
+        if not all_values:
+            logger.warning("Sheet is empty; cannot bulk sync")
+            return 0
+
+        header_row = all_values[0]
+        col_index: dict[str, int] = {
+            h.strip().lower(): i + 1 for i, h in enumerate(header_row)
+        }
+
+        phone_row_index = _build_phone_row_index(all_values, col_index)
+
+        all_updates: list[dict] = []
+        appends: list[list[str]] = []
+
+        for lead in leads:
+            target_row = _find_row_by_phone(str(lead.phone or ""), phone_row_index)
+            pairs = _collect_field_pairs(lead, col_index)
+
+            if target_row:
+                for col, value in pairs:
+                    all_updates.append({
+                        "range": f"{_col_letter(col)}{target_row}",
+                        "values": [[value]],
+                    })
+            else:
+                new_row = [""] * len(header_row)
+                for col, value in pairs:
+                    new_row[col - 1] = value
+                appends.append(new_row)
+
+        if all_updates:
+            sheet.batch_update(all_updates, value_input_option="RAW")
+        for row in appends:
+            sheet.append_row(row, value_input_option="RAW")
+
+        return len(leads)
+
     except Exception as exc:
         logger.error("Google Sheets bulk sync failed: %s", exc)
         return 0

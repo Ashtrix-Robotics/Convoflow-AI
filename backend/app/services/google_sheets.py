@@ -103,13 +103,10 @@ def get_auth_error() -> str:
     return _last_auth_error
 
 
-WORKSHEET_NAME = "Convoflow Leads"
-
-
 def _get_sheet():
     """
-    Return the 'Convoflow Leads' worksheet, creating it if it doesn't exist.
-    This leaves the user's existing sheets (Sheet1, etc.) untouched.
+    Return the configured worksheet (google_source_sheet_name), 
+    defaulting to 'Sheet1' if not set.
     """
     try:
         from app.core.config import settings
@@ -119,11 +116,14 @@ def _get_sheet():
         if not client:
             return None
         spreadsheet = client.open_by_key(settings.google_spreadsheet_id)
+        
+        # Use the sheet name configured in settings, default to 'Sheet1'
+        sheet_name = settings.google_source_sheet_name or "Sheet1"
         try:
-            return spreadsheet.worksheet(WORKSHEET_NAME)
+            return spreadsheet.worksheet(sheet_name)
         except Exception:
             # Tab doesn't exist yet — create it
-            return spreadsheet.add_worksheet(title=WORKSHEET_NAME, rows=1000, cols=20)
+            return spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
     except Exception as exc:
         logger.error("Failed to open Google Sheet: %s", exc)
         return None

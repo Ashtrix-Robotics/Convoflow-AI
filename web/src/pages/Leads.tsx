@@ -47,6 +47,18 @@ const INTENT_COLORS: Record<string, string> = {
   new: "bg-slate-100 text-slate-600",
 };
 
+// Maps table column label → lead field name for sorting
+const SORTABLE_COLS: Record<string, string> = {
+  Name: "name",
+  Phone: "phone",
+  Status: "status",
+  Intent: "intent_category",
+  Campaign: "source_campaign",
+  Updated: "updated_at",
+};
+
+const PAGE_SIZE = 50;
+
 export default function Leads() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -69,6 +81,13 @@ export default function Leads() {
   // Extra-data column filter
   const [filterExtraKey, setFilterExtraKey] = useState("");
   const [filterExtraValue, setFilterExtraValue] = useState("");
+
+  // Sort state
+  const [sortCol, setSortCol] = useState<string>("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Pagination
+  const [page, setPage] = useState(1);
 
   // Column visibility — tracks which extra_data keys are shown as columns
   const [visibleExtraCols, setVisibleExtraCols] = useState<Set<string>>(
@@ -197,6 +216,42 @@ export default function Leads() {
       return v != null && String(v).toLowerCase().includes(val);
     });
   }, [leads, filterExtraKey, filterExtraValue]);
+
+  // Sort
+  const handleSort = useCallback((col: string) => {
+    setSortCol((prev) => {
+      if (prev === col) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return col;
+      }
+      setSortDir("asc");
+      return col;
+    });
+    setPage(1);
+  }, []);
+
+  const sortedLeads = useMemo(() => {
+    if (!sortCol) return filteredLeads;
+    return [...filteredLeads].sort((a, b) => {
+      const field = SORTABLE_COLS[sortCol] ?? null;
+      const av = field ? (a[field] ?? "") : (a.extra_data?.[sortCol] ?? "");
+      const bv = field ? (b[field] ?? "") : (b.extra_data?.[sortCol] ?? "");
+      const cmp = String(av).localeCompare(String(bv), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filteredLeads, sortCol, sortDir]);
+
+  // Reset page whenever the sorted result set changes
+  useEffect(() => { setPage(1); }, [sortedLeads]);
+
+  const totalPages = Math.ceil(sortedLeads.length / PAGE_SIZE);
+  const pagedLeads = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return sortedLeads.slice(start, start + PAGE_SIZE);
+  }, [sortedLeads, page]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -472,10 +527,10 @@ export default function Leads() {
 
         {/* Pipeline view */}
         {!isLoading && view === "pipeline" && (
-          <div className="flex gap-4 overflow-x-auto pb-4 max-w-7xl mx-auto">
+          <div className="flex gap-4 overflow-x-auto pb-2 max-w-7xl mx-auto items-start">
             {grouped.map((col) => (
-              <div key={col.key} className="min-w-[260px] flex-1">
-                <div className="flex items-center gap-2 mb-3">
+              <div key={col.key} className="min-w-[260px] flex-1 flex flex-col" style={{ maxHeight: "calc(100vh - 200px)" }}>
+                <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                   <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
                   <h3 className="font-semibold text-sm text-gray-700">
                     {col.label}
@@ -484,7 +539,7 @@ export default function Leads() {
                     {col.leads.length}
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="overflow-y-auto flex-1 space-y-2 pr-0.5">
                   {col.leads.map((lead: any) => (
                     <Link
                       key={lead.id}
@@ -534,37 +589,54 @@ export default function Leads() {
 
         {/* List view */}
         {!isLoading && view === "list" && (
-          <div className="max-w-7xl mx-auto overflow-x-auto">
-            <table className="min-w-full bg-white rounded-xl shadow-sm overflow-hidden">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+          <div className="max-w-7xl mx-auto">
+            <div
+              className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm"
+              style={{ maxHeight: "calc(100vh - 220px)" }}
+            >
+            <table className="min-w-full">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3 w-8">
                     <input
                       type="checkbox"
                       checked={
-                        filteredLeads.length > 0 &&
-                        selected.size === filteredLeads.length
+                        sortedLeads.length > 0 &&
+                        selected.size === sortedLeads.length
                       }
                       onChange={toggleAll}
                       className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
                       title="Select all"
                     />
                   </th>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Intent</th>
-                  <th className="px-4 py-3">Campaign</th>
-                  <th className="px-4 py-3">Updated</th>
-                  {Array.from(visibleExtraCols).map((col) => (
-                    <th key={col} className="px-4 py-3">
+                  {(["Name", "Phone", "Status", "Intent", "Campaign", "Updated"] as const).map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
+                      onClick={() => handleSort(col)}
+                    >
                       {col}
+                      <span className="ml-1 inline-block w-3 text-gray-400">
+                        {sortCol === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                      </span>
+                    </th>
+                  ))}
+                  {Array.from(visibleExtraCols).map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-700"
+                      onClick={() => handleSort(col)}
+                    >
+                      {col}
+                      <span className="ml-1 inline-block w-3 text-gray-400">
+                        {sortCol === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                      </span>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredLeads.map((lead: any) => (
+                {pagedLeads.map((lead: any) => (
                   <tr
                     key={lead.id}
                     className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
@@ -627,17 +699,61 @@ export default function Leads() {
                 ))}
               </tbody>
             </table>
-            {filteredLeads.length === 0 && (
+            {sortedLeads.length === 0 && (
               <p className="text-gray-400 text-center py-12">No leads found</p>
             )}
-            {filteredLeads.length > 0 && (
-              <p className="text-xs text-gray-400 mt-2 text-right">
-                {filteredLeads.length}
-                {filteredLeads.length !== leads.length
-                  ? ` of ${leads.length}`
-                  : ""}{" "}
-                leads
-              </p>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-3 px-1">
+                <p className="text-xs text-gray-400">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sortedLeads.length)} of {sortedLeads.length} leads
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Prev
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("…");
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === "…" ? (
+                        <span key={`ellipsis-${i}`} className="px-2 text-gray-400 text-xs">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p as number)}
+                          className={`px-3 py-1 text-xs rounded-lg border transition ${
+                            page === p
+                              ? "bg-[#FF6600] border-[#FF6600] text-white font-semibold"
+                              : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-3 py-1 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+            {totalPages <= 1 && sortedLeads.length > 0 && (
+              <p className="text-xs text-gray-400 mt-2 text-right">{sortedLeads.length} leads</p>
             )}
           </div>
         )}

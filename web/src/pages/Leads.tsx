@@ -104,14 +104,12 @@ const EXACT_MATCH_FIELDS = new Set([
 type SlimFilter = { field: string; value: string };
 function encodeFilters(f: FilterClause[]): string {
   if (f.length === 0) return "";
-  return encodeURIComponent(
-    JSON.stringify(f.map(({ field, value }) => ({ field, value }))),
-  );
+  return JSON.stringify(f.map(({ field, value }) => ({ field, value })));
 }
 function decodeFilters(s: string | null): FilterClause[] {
   if (!s) return [];
   try {
-    const arr: SlimFilter[] = JSON.parse(decodeURIComponent(s));
+    const arr: SlimFilter[] = JSON.parse(s);
     return arr.map((item, i) => ({
       id: `${item.field}-${i}`,
       field: item.field,

@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+﻿import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
@@ -17,6 +17,19 @@ const STATUS_OPTIONS = [
   "deferred",
 ];
 
+const INTENT_OPTIONS_ALL = [
+  "new",
+  "interested",
+  "callback_requested",
+  "payment_pending",
+  "not_interested",
+  "no_answer",
+  "future_planning",
+  "converted",
+  "wrong_number",
+  "undecided",
+];
+
 const INTENT_COLORS: Record<string, string> = {
   interested: "bg-green-100 text-green-700",
   callback_requested: "bg-yellow-100 text-yellow-700",
@@ -27,16 +40,206 @@ const INTENT_COLORS: Record<string, string> = {
   converted: "bg-emerald-100 text-emerald-700",
 };
 
+// ── Edit Modal ────────────────────────────────────────────────────────────────
+
+function EditLeadModal({
+  lead,
+  onClose,
+  onSave,
+  isSaving,
+}: {
+  lead: any;
+  onClose: () => void;
+  onSave: (data: Record<string, any>) => void;
+  isSaving: boolean;
+}) {
+  const [form, setForm] = useState({
+    name: lead.name ?? "",
+    phone: lead.phone ?? "",
+    email: lead.email ?? "",
+    source_campaign: lead.source_campaign ?? "",
+    ad_set: lead.ad_set ?? "",
+    course_interested_in: lead.course_interested_in ?? "",
+    payment_link_url: lead.payment_link_url ?? "",
+    status: lead.status ?? "new",
+    intent_category: lead.intent_category ?? "new",
+  });
+
+  const [extraPairs, setExtraPairs] = useState<[string, string][]>(
+    Object.entries(lead.extra_data ?? {}).map(([k, v]) => [k, String(v)]),
+  );
+
+  const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSubmit = () => {
+    const extra_data: Record<string, string> = {};
+    for (const [k, v] of extraPairs) {
+      if (k.trim()) extra_data[k.trim()] = v;
+    }
+    onSave({ ...form, extra_data });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-semibold text-gray-800">Edit Lead</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(
+            [
+              ["name", "Name"],
+              ["phone", "Phone"],
+              ["email", "Email"],
+              ["source_campaign", "Campaign"],
+              ["ad_set", "Ad Set"],
+              ["course_interested_in", "Course Interested In"],
+              ["payment_link_url", "Payment Link URL"],
+            ] as [string, string][]
+          ).map(([key, label]) => (
+            <div key={key}>
+              <label className="block text-xs text-gray-500 mb-1">
+                {label}
+              </label>
+              <input
+                type="text"
+                value={(form as any)[key]}
+                onChange={(e) => f(key, e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+              />
+            </div>
+          ))}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Status</label>
+            <select
+              value={form.status}
+              onChange={(e) => f("status", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Intent Category
+            </label>
+            <select
+              value={form.intent_category}
+              onChange={(e) => f("intent_category", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+            >
+              {INTENT_OPTIONS_ALL.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+              Campaign Context (Extra Fields)
+            </p>
+            <button
+              onClick={() => setExtraPairs((p) => [...p, ["", ""]])}
+              className="text-[#FF6600] text-sm font-medium hover:underline"
+            >
+              + Add field
+            </button>
+          </div>
+          <div className="space-y-2">
+            {extraPairs.map(([k, v], i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Key"
+                  value={k}
+                  onChange={(e) =>
+                    setExtraPairs((p) =>
+                      p.map((x, idx) =>
+                        idx === i ? [e.target.value, x[1]] : x,
+                      ),
+                    )
+                  }
+                  className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                />
+                <input
+                  type="text"
+                  placeholder="Value"
+                  value={v}
+                  onChange={(e) =>
+                    setExtraPairs((p) =>
+                      p.map((x, idx) =>
+                        idx === i ? [x[0], e.target.value] : x,
+                      ),
+                    )
+                  }
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                />
+                <button
+                  onClick={() =>
+                    setExtraPairs((p) => p.filter((_, idx) => idx !== i))
+                  }
+                  className="text-red-400 hover:text-red-600 text-lg leading-none px-1"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {extraPairs.length === 0 && (
+              <p className="text-sm text-gray-400 italic">
+                No extra fields. Click "+ Add field" to add one.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-lg bg-[#FF6600] text-white text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition"
+          >
+            {isSaving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function LeadDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
+  const [conversationDraft, setConversationDraft] = useState<string | null>(
+    null,
+  );
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const refreshLeadViews = (nextLead?: any) => {
-    if (nextLead) {
-      queryClient.setQueryData(["lead", id], nextLead);
-    }
+    if (nextLead) queryClient.setQueryData(["lead", id], nextLead);
     void queryClient.invalidateQueries({ queryKey: ["lead", id] });
     void queryClient.invalidateQueries({ queryKey: ["leads"] });
     void queryClient.invalidateQueries({ queryKey: ["analytics"] });
@@ -64,6 +267,11 @@ export default function LeadDetail() {
   const updateLead = useMutation({
     mutationFn: (data: Record<string, any>) =>
       api.patch(`/leads/${id}`, data).then((r) => r.data),
+    onSuccess: (nextLead) => refreshLeadViews(nextLead),
+  });
+
+  const classifyIntent = useMutation({
+    mutationFn: () => api.post(`/leads/${id}/classify`).then((r) => r.data),
     onSuccess: (nextLead) => refreshLeadViews(nextLead),
   });
 
@@ -99,8 +307,26 @@ export default function LeadDetail() {
       </div>
     );
 
+  const conversationText =
+    conversationDraft !== null
+      ? conversationDraft
+      : (lead.conversation_summary ?? "");
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {showEditModal && (
+        <EditLeadModal
+          lead={lead}
+          onClose={() => setShowEditModal(false)}
+          isSaving={updateLead.isPending}
+          onSave={(data) => {
+            updateLead.mutate(data, {
+              onSuccess: () => setShowEditModal(false),
+            });
+          }}
+        />
+      )}
+
       <NavBar
         active="leads"
         breadcrumb={{ label: "Back to Leads", to: "/leads" }}
@@ -118,6 +344,12 @@ export default function LeadDetail() {
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="text-xs text-[#FF6600] border border-[#FF6600] rounded-lg px-3 py-1.5 hover:bg-orange-50 transition font-medium"
+              >
+                ✏ Edit Lead
+              </button>
               <select
                 value={lead.status}
                 onChange={(e) => updateLead.mutate({ status: e.target.value })}
@@ -139,7 +371,6 @@ export default function LeadDetail() {
             </div>
           </div>
 
-          {/* Details grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 text-sm">
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide">
@@ -277,6 +508,97 @@ export default function LeadDetail() {
           >
             🎉 Converted
           </button>
+        </div>
+
+        {/* Conversation Summary */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-semibold text-gray-700">
+              Conversation Summary
+            </h3>
+            <button
+              onClick={() => {
+                if (classifyIntent.isPending) return;
+                const save =
+                  conversationDraft !== null &&
+                  conversationDraft !== lead.conversation_summary
+                    ? updateLead.mutateAsync({
+                        conversation_summary: conversationDraft,
+                      })
+                    : Promise.resolve();
+                save.then(() => {
+                  setConversationDraft(null);
+                  classifyIntent.mutate();
+                });
+              }}
+              disabled={
+                classifyIntent.isPending ||
+                updateLead.isPending ||
+                !conversationText.trim()
+              }
+              title={
+                !conversationText.trim()
+                  ? "Add a conversation summary first"
+                  : "Classify intent using AI"
+              }
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition"
+            >
+              {classifyIntent.isPending ? "⟳" : "✦"}{" "}
+              {classifyIntent.isPending ? "Classifying…" : "Classify Intent"}
+            </button>
+          </div>
+
+          {classifyIntent.isSuccess && (
+            <div className="mb-3 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 text-sm text-indigo-700">
+              Intent classified:{" "}
+              <span className="font-semibold">
+                {lead.intent_category?.replace(/_/g, " ")}
+              </span>
+              {lead.intent_confidence != null &&
+                ` (${(lead.intent_confidence * 100).toFixed(0)}% confidence)`}
+            </div>
+          )}
+
+          {classifyIntent.isError && (
+            <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-600">
+              Classification failed. Please try again.
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400 mb-2">
+            Summarise what was discussed with this lead. Used by AI to classify
+            intent.
+          </p>
+          <textarea
+            rows={5}
+            placeholder="e.g. Parent called asking about summer camp for 8-year-old. Interested in the July batch, has budget concerns, wants to discuss with spouse first. Will call back Friday."
+            value={conversationText}
+            onChange={(e) => setConversationDraft(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600] resize-y"
+          />
+          {conversationDraft !== null &&
+            conversationDraft !== lead.conversation_summary && (
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  onClick={() => setConversationDraft(null)}
+                  className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded transition"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => {
+                    updateLead.mutate(
+                      { conversation_summary: conversationDraft },
+                      { onSuccess: () => setConversationDraft(null) },
+                    );
+                  }}
+                  disabled={updateLead.isPending}
+                  className="bg-[#FF6600] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition"
+                >
+                  {updateLead.isPending ? "Saving…" : "Save"}
+                </button>
+              </div>
+            )}
         </div>
 
         {/* Notes */}

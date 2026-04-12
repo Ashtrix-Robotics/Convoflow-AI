@@ -117,10 +117,14 @@ class LeadCreate(BaseModel):
 
 class LeadUpdate(BaseModel):
     name: str | None = None
+    phone: str | None = None
     email: str | None = None
+    source_campaign: str | None = None
+    ad_set: str | None = None
     status: LeadStatus | None = None
     intent_category: IntentCategory | None = None
     notes: str | None = None
+    conversation_summary: str | None = None
     extra_data: dict | None = None
     callback_scheduled_at: datetime | None = None
     next_followup_at: datetime | None = None
@@ -151,6 +155,7 @@ class LeadOut(BaseModel):
     course_interested_in: str | None
     objections: str | None
     notes: str | None
+    conversation_summary: str | None
     extra_data: dict | None = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime

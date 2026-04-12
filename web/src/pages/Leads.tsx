@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import NavBar from "../components/NavBar";
 import { PipelineSkeleton, TableSkeleton } from "../components/Skeleton";
 import api from "../services/api";
@@ -65,6 +65,30 @@ export default function Leads() {
     text: string;
   } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Extra-data column filter
+  const [filterExtraKey, setFilterExtraKey] = useState("");
+  const [filterExtraValue, setFilterExtraValue] = useState("");
+
+  // Column visibility — tracks which extra_data keys are shown as columns
+  const [visibleExtraCols, setVisibleExtraCols] = useState<Set<string>>(
+    new Set(),
+  );
+  const [showColMenu, setShowColMenu] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        colMenuRef.current &&
+        !colMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowColMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["leads", search, filterIntent],
@@ -153,6 +177,27 @@ export default function Leads() {
     leads: leads.filter((l: any) => l.status === col.key),
   }));
 
+  // Collect all unique extra_data keys across loaded leads
+  const extraKeys = useMemo<string[]>(() => {
+    const keys = new Set<string>();
+    for (const lead of leads) {
+      if (lead.extra_data && typeof lead.extra_data === "object") {
+        for (const k of Object.keys(lead.extra_data)) keys.add(k);
+      }
+    }
+    return Array.from(keys).sort();
+  }, [leads]);
+
+  // Apply extra_data filter on top of server-filtered results
+  const filteredLeads = useMemo(() => {
+    if (!filterExtraKey || !filterExtraValue.trim()) return leads;
+    const val = filterExtraValue.trim().toLowerCase();
+    return leads.filter((l: any) => {
+      const v = l.extra_data?.[filterExtraKey];
+      return v != null && String(v).toLowerCase().includes(val);
+    });
+  }, [leads, filterExtraKey, filterExtraValue]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar active="leads" />
@@ -180,6 +225,76 @@ export default function Leads() {
             <option value="no_answer">No Answer</option>
             <option value="future_planning">Future Planning</option>
           </select>
+
+          {/* Extra-data filters */}
+          {extraKeys.length > 0 && (
+            <>
+              <select
+                value={filterExtraKey}
+                onChange={(e) => {
+                  setFilterExtraKey(e.target.value);
+                  setFilterExtraValue("");
+                }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+              >
+                <option value="">Filter by field…</option>
+                {extraKeys.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+              {filterExtraKey && (
+                <input
+                  type="text"
+                  placeholder={`Value for ${filterExtraKey}…`}
+                  value={filterExtraValue}
+                  onChange={(e) => setFilterExtraValue(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                />
+              )}
+            </>
+          )}
+
+          {/* Column visibility (list view only) */}
+          {view === "list" && extraKeys.length > 0 && (
+            <div className="relative" ref={colMenuRef}>
+              <button
+                onClick={() => setShowColMenu((v) => !v)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition flex items-center gap-1.5"
+                title="Show/hide extra columns"
+              >
+                ⚙ Columns
+              </button>
+              {showColMenu && (
+                <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-52 space-y-1.5">
+                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">
+                    Extra columns
+                  </p>
+                  {extraKeys.map((k) => (
+                    <label
+                      key={k}
+                      className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 hover:text-gray-900"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleExtraCols.has(k)}
+                        onChange={() =>
+                          setVisibleExtraCols((prev) => {
+                            const next = new Set(prev);
+                            next.has(k) ? next.delete(k) : next.add(k);
+                            return next;
+                          })
+                        }
+                        className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      />
+                      {k}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="ml-auto flex gap-1 bg-gray-200 rounded-lg p-0.5">
             <button
               onClick={() => {
@@ -427,7 +542,8 @@ export default function Leads() {
                     <input
                       type="checkbox"
                       checked={
-                        leads.length > 0 && selected.size === leads.length
+                        filteredLeads.length > 0 &&
+                        selected.size === filteredLeads.length
                       }
                       onChange={toggleAll}
                       className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
@@ -440,10 +556,15 @@ export default function Leads() {
                   <th className="px-4 py-3">Intent</th>
                   <th className="px-4 py-3">Campaign</th>
                   <th className="px-4 py-3">Updated</th>
+                  {Array.from(visibleExtraCols).map((col) => (
+                    <th key={col} className="px-4 py-3">
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {leads.map((lead: any) => (
+                {filteredLeads.map((lead: any) => (
                   <tr
                     key={lead.id}
                     className={`hover:bg-gray-50 transition ${selected.has(lead.id) ? "bg-orange-50" : ""}`}
@@ -492,17 +613,30 @@ export default function Leads() {
                           })
                         : "—"}
                     </td>
+                    {Array.from(visibleExtraCols).map((col) => (
+                      <td
+                        key={col}
+                        className="px-4 py-3 text-xs text-gray-500 max-w-[160px] truncate"
+                      >
+                        {lead.extra_data?.[col] != null
+                          ? String(lead.extra_data[col])
+                          : "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
-            {leads.length === 0 && (
+            {filteredLeads.length === 0 && (
               <p className="text-gray-400 text-center py-12">No leads found</p>
             )}
-            {leads.length > 0 && (
+            {filteredLeads.length > 0 && (
               <p className="text-xs text-gray-400 mt-2 text-right">
-                {leads.length} leads · Switch to List view to use bulk
-                operations
+                {filteredLeads.length}
+                {filteredLeads.length !== leads.length
+                  ? ` of ${leads.length}`
+                  : ""}{" "}
+                leads
               </p>
             )}
           </div>

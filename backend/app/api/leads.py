@@ -423,3 +423,54 @@ def bulk_lead_action(
 
     db.commit()
     return BulkLeadResult(updated=updated, deleted=deleted, failed=failed, errors=errors)
+
+
+# ---------------------------------------------------------------------------
+# AI Intent Classification from manual conversation summary
+# ---------------------------------------------------------------------------
+
+@router.post("/{lead_id}/classify", response_model=LeadOut)
+async def classify_lead_intent(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Run AI intent classification on the lead's conversation_summary text.
+    Updates intent_category, intent_confidence, interest_level, and course_interested_in.
+    Returns the updated lead.
+    """
+    from app.services.transcription import extract_edutech_insights
+
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    text = (lead.conversation_summary or "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=422,
+            detail="No conversation summary to classify. Add one first.",
+        )
+
+    lead_context = {
+        "name": lead.name,
+        "phone": lead.phone,
+        "source_campaign": lead.source_campaign,
+        **(lead.extra_data or {}),
+    }
+
+    insights = await extract_edutech_insights(text, lead_context)
+
+    lead.intent_category = insights.get("intent_category") or lead.intent_category
+    lead.intent_confidence = insights.get("intent_confidence")
+    lead.interest_level = insights.get("interest_level") or lead.interest_level
+    if insights.get("course_interested_in"):
+        lead.course_interested_in = insights["course_interested_in"]
+    if insights.get("objections"):
+        import json as _json
+        lead.objections = _json.dumps(insights["objections"])
+    lead.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(lead)
+    return lead

@@ -100,6 +100,7 @@ class Lead(Base):
     objections: Mapped[Optional[str]] = mapped_column(Text)                # JSON array stored as text
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    conversation_summary: Mapped[Optional[str]] = mapped_column(Text)      # manually entered call context
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 

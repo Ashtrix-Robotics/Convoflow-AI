@@ -90,6 +90,33 @@ def _supabase_delete_user(supabase_uid: str) -> None:
     except Exception as exc:
         logger.warning("Supabase delete_user failed (%s): %s", supabase_uid, exc)
 
+
+def _supabase_delete_user_by_email(email: str) -> None:
+    """Delete a Supabase Auth user when we only know the email (no stored UID)."""
+    sb = _supabase_admin()
+    if not sb or not email:
+        return
+    try:
+        # Supabase admin list_users is paginated; page through until we find the email
+        page = 1
+        while True:
+            resp = sb.auth.admin.list_users(page=page, per_page=50)
+            users = resp if isinstance(resp, list) else getattr(resp, "users", [])
+            if not users:
+                break
+            for u in users:
+                if getattr(u, "email", None) == email:
+                    sb.auth.admin.delete_user(u.id)
+                    logger.info("Supabase Auth user deleted by email lookup: %s", email)
+                    return
+            # If fewer than 50 returned we've hit the last page
+            if len(users) < 50:
+                break
+            page += 1
+        logger.warning("Supabase Auth user not found by email: %s", email)
+    except Exception as exc:
+        logger.warning("Supabase delete_by_email failed (%s): %s", email, exc)
+
 @router.get("/", response_model=list[AgentOut])
 def list_agents(
     db: Session = Depends(get_db),
@@ -220,6 +247,7 @@ def delete_agent(
     if agent.id == current_agent.id:
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
     supabase_uid = agent.supabase_uid
+    agent_email = agent.email  # save before object is deleted
     # Nullify optional FK references
     db.query(Lead).filter(Lead.assigned_agent_id == agent_id).update(
         {"assigned_agent_id": None}, synchronize_session=False
@@ -236,7 +264,9 @@ def delete_agent(
     )
     db.delete(agent)
     db.commit()
-    # Remove from Supabase Auth
+    # Remove from Supabase Auth — prefer UID; fall back to email lookup
     if supabase_uid:
         _supabase_delete_user(supabase_uid)
+    else:
+        _supabase_delete_user_by_email(agent_email)
     return

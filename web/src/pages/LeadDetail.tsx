@@ -6,6 +6,49 @@ import NavBar from "../components/NavBar";
 import { DetailSkeleton } from "../components/Skeleton";
 import api from "../services/api";
 
+// ── Field-type helpers ─────────────────────────────────────────────────────────
+
+type InputType = "text" | "date" | "datetime-local" | "tel" | "email" | "number" | "url";
+
+const INPUT_TYPE_CYCLE: InputType[] = [
+  "text", "date", "datetime-local", "tel", "email", "number", "url",
+];
+
+const INPUT_TYPE_ICONS: Record<InputType, string> = {
+  text: "Aa", date: "📅", "datetime-local": "🕒",
+  tel: "☎", email: "@", number: "#", url: "🔗",
+};
+
+function detectFieldType(key: string): InputType {
+  const lk = key.toLowerCase().replace(/[^a-z]/g, " ");
+  if (/\bdate\b|\bday\b|\bdob\b|\bbirth\b|\bjoining\b|\badmission\b|\bregistration\b/.test(lk))
+    return "date";
+  if (/\btime\b|\bschedule\b|\bat\b/.test(lk)) return "datetime-local";
+  if (/\bphone\b|\bmobile\b|\bcell\b/.test(lk)) return "tel";
+  if (/\bemail\b/.test(lk)) return "email";
+  if (/\bfee\b|\bprice\b|\bscore\b|\bgrade\b|\bage\b|\bcount\b|\bamount\b|\bnum\b/.test(lk))
+    return "number";
+  if (/\burl\b|\blink\b|\bwebsite\b/.test(lk)) return "url";
+  return "text";
+}
+
+/** Convert an ISO timestamp string to the value expected by <input type="datetime-local"> */
+function isoToLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+  } catch { return ""; }
+}
+
+/** Convert a datetime-local input value back to ISO string (UTC) */
+function localToIso(val: string): string | null {
+  if (!val) return null;
+  try { return new Date(val).toISOString(); } catch { return null; }
+}
+
 const STATUS_OPTIONS = [
   "new",
   "contacted",
@@ -42,6 +85,8 @@ const INTENT_COLORS: Record<string, string> = {
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
+const INTEREST_OPTIONS = ["high", "medium", "low", "none"] as const;
+
 function EditLeadModal({
   lead,
   onClose,
@@ -61,6 +106,10 @@ function EditLeadModal({
     ad_set: lead.ad_set ?? "",
     course_interested_in: lead.course_interested_in ?? "",
     payment_link_url: lead.payment_link_url ?? "",
+    interest_level: lead.interest_level ?? "",
+    notes: lead.notes ?? "",
+    callback_scheduled_at: isoToLocal(lead.callback_scheduled_at),
+    next_followup_at: isoToLocal(lead.next_followup_at),
     status: lead.status ?? "new",
     intent_category: lead.intent_category ?? "new",
   });
@@ -69,15 +118,49 @@ function EditLeadModal({
     Object.entries(lead.extra_data ?? {}).map(([k, v]) => [k, String(v)]),
   );
 
+  // Per-field input type overrides for extra fields (auto-detected, user-overridable)
+  const [fieldTypes, setFieldTypes] = useState<Record<string, InputType>>(() => {
+    const init: Record<string, InputType> = {};
+    for (const [k] of Object.entries(lead.extra_data ?? {})) {
+      init[k] = detectFieldType(k);
+    }
+    return init;
+  });
+
   const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const cycleType = (key: string) =>
+    setFieldTypes((prev) => {
+      const cur = prev[key] ?? "text";
+      const idx = INPUT_TYPE_CYCLE.indexOf(cur);
+      const next = INPUT_TYPE_CYCLE[(idx + 1) % INPUT_TYPE_CYCLE.length];
+      return { ...prev, [key]: next };
+    });
 
   const handleSubmit = () => {
     const extra_data: Record<string, string> = {};
     for (const [k, v] of extraPairs) {
       if (k.trim()) extra_data[k.trim()] = v;
     }
-    onSave({ ...form, extra_data });
+    onSave({
+      ...form,
+      interest_level: form.interest_level || null,
+      notes: form.notes || null,
+      callback_scheduled_at: localToIso(form.callback_scheduled_at),
+      next_followup_at: localToIso(form.next_followup_at),
+      extra_data,
+    });
   };
+
+  const STANDARD_TEXT_FIELDS: [string, string, InputType][] = [
+    ["name", "Name", "text"],
+    ["phone", "Phone", "tel"],
+    ["email", "Email", "email"],
+    ["source_campaign", "Campaign", "text"],
+    ["ad_set", "Ad Set", "text"],
+    ["course_interested_in", "Course Interested In", "text"],
+    ["payment_link_url", "Payment Link URL", "url"],
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -92,30 +175,21 @@ function EditLeadModal({
           </button>
         </div>
 
+        {/* Standard text/url/tel/email fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(
-            [
-              ["name", "Name"],
-              ["phone", "Phone"],
-              ["email", "Email"],
-              ["source_campaign", "Campaign"],
-              ["ad_set", "Ad Set"],
-              ["course_interested_in", "Course Interested In"],
-              ["payment_link_url", "Payment Link URL"],
-            ] as [string, string][]
-          ).map(([key, label]) => (
+          {STANDARD_TEXT_FIELDS.map(([key, label, inputType]) => (
             <div key={key}>
-              <label className="block text-xs text-gray-500 mb-1">
-                {label}
-              </label>
+              <label className="block text-xs text-gray-500 mb-1">{label}</label>
               <input
-                type="text"
+                type={inputType}
                 value={(form as any)[key]}
                 onChange={(e) => f(key, e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
               />
             </div>
           ))}
+
+          {/* Status */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Status</label>
             <select
@@ -124,81 +198,149 @@ function EditLeadModal({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
+                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
               ))}
             </select>
           </div>
+
+          {/* Intent Category */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
-              Intent Category
-            </label>
+            <label className="block text-xs text-gray-500 mb-1">Intent Category</label>
             <select
               value={form.intent_category}
               onChange={(e) => f("intent_category", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
             >
               {INTENT_OPTIONS_ALL.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
+                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
               ))}
             </select>
           </div>
+
+          {/* Interest Level */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Interest Level</label>
+            <select
+              value={form.interest_level}
+              onChange={(e) => f("interest_level", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+            >
+              <option value="">— Not Set —</option>
+              {INTEREST_OPTIONS.map((o) => (
+                <option key={o} value={o} className="capitalize">{o}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Callback Scheduled At */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Callback Scheduled At</label>
+            <input
+              type="datetime-local"
+              value={form.callback_scheduled_at}
+              onChange={(e) => f("callback_scheduled_at", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+            />
+          </div>
+
+          {/* Next Follow-up At */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Next Follow-up At</label>
+            <input
+              type="datetime-local"
+              value={form.next_followup_at}
+              onChange={(e) => f("next_followup_at", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+            />
+          </div>
         </div>
 
+        {/* Notes — full width */}
+        <div className="mt-4">
+          <label className="block text-xs text-gray-500 mb-1">Notes</label>
+          <textarea
+            rows={3}
+            value={form.notes}
+            onChange={(e) => f("notes", e.target.value)}
+            placeholder="Add call notes or context…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600] resize-none"
+          />
+        </div>
+
+        {/* Extra / Campaign-context fields */}
         <div className="mt-6">
           <div className="flex justify-between items-center mb-2">
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
               Campaign Context (Extra Fields)
             </p>
             <button
-              onClick={() => setExtraPairs((p) => [...p, ["", ""]])}
+              onClick={() => {
+                const newKey = "";
+                setExtraPairs((p) => [...p, [newKey, ""]]);
+                setFieldTypes((prev) => ({ ...prev, [newKey]: "text" }));
+              }}
               className="text-[#FF6600] text-sm font-medium hover:underline"
             >
               + Add field
             </button>
           </div>
           <div className="space-y-2">
-            {extraPairs.map(([k, v], i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  placeholder="Key"
-                  value={k}
-                  onChange={(e) =>
-                    setExtraPairs((p) =>
-                      p.map((x, idx) =>
-                        idx === i ? [e.target.value, x[1]] : x,
-                      ),
-                    )
-                  }
-                  className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                />
-                <input
-                  type="text"
-                  placeholder="Value"
-                  value={v}
-                  onChange={(e) =>
-                    setExtraPairs((p) =>
-                      p.map((x, idx) =>
-                        idx === i ? [x[0], e.target.value] : x,
-                      ),
-                    )
-                  }
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                />
-                <button
-                  onClick={() =>
-                    setExtraPairs((p) => p.filter((_, idx) => idx !== i))
-                  }
-                  className="text-red-400 hover:text-red-600 text-lg leading-none px-1"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+            {extraPairs.map(([k, v], i) => {
+              const itype = fieldTypes[k] ?? detectFieldType(k);
+              return (
+                <div key={i} className="flex gap-2 items-center">
+                  {/* Key */}
+                  <input
+                    type="text"
+                    placeholder="Field name"
+                    value={k}
+                    onChange={(e) => {
+                      const newKey = e.target.value;
+                      setExtraPairs((p) =>
+                        p.map((x, idx) => (idx === i ? [newKey, x[1]] : x)),
+                      );
+                      setFieldTypes((prev) => {
+                        const next = { ...prev };
+                        delete next[k];
+                        next[newKey] = detectFieldType(newKey);
+                        return next;
+                      });
+                    }}
+                    className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                  />
+                  {/* Value with smart input type */}
+                  <input
+                    type={itype}
+                    placeholder="Value"
+                    value={v}
+                    onChange={(e) =>
+                      setExtraPairs((p) =>
+                        p.map((x, idx) => (idx === i ? [x[0], e.target.value] : x)),
+                      )
+                    }
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                  />
+                  {/* Type cycle button */}
+                  <button
+                    type="button"
+                    onClick={() => cycleType(k)}
+                    title={`Input type: ${itype} — click to change`}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-[#FF6600] hover:text-[#FF6600] text-xs font-bold flex-shrink-0 transition"
+                  >
+                    {INPUT_TYPE_ICONS[itype]}
+                  </button>
+                  {/* Remove */}
+                  <button
+                    onClick={() =>
+                      setExtraPairs((p) => p.filter((_, idx) => idx !== i))
+                    }
+                    className="text-red-400 hover:text-red-600 text-lg leading-none px-1 flex-shrink-0"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
             {extraPairs.length === 0 && (
               <p className="text-sm text-gray-400 italic">
                 No extra fields. Click "+ Add field" to add one.

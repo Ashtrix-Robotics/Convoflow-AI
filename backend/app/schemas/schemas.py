@@ -123,6 +123,7 @@ class LeadUpdate(BaseModel):
     ad_set: str | None = None
     status: LeadStatus | None = None
     intent_category: IntentCategory | None = None
+    interest_level: str | None = None
     notes: str | None = None
     conversation_summary: str | None = None
     extra_data: dict | None = None

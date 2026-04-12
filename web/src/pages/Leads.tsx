@@ -47,24 +47,52 @@ const INTENT_COLORS: Record<string, string> = {
   new: "bg-slate-100 text-slate-600",
 };
 
+const INTEREST_COLORS: Record<string, string> = {
+  high: "bg-green-100 text-green-700",
+  medium: "bg-yellow-100 text-yellow-700",
+  low: "bg-orange-100 text-orange-700",
+  none: "bg-gray-100 text-gray-500",
+};
+
 // Maps table column label → lead field name for sorting
 const SORTABLE_COLS: Record<string, string> = {
   Name: "name",
   Phone: "phone",
   Status: "status",
   Intent: "intent_category",
+  Interest: "interest_level",
   Campaign: "source_campaign",
+  Followup: "next_followup_at",
   Updated: "updated_at",
 };
 
 const PAGE_SIZE = 50;
 
+// Multi-filter
+type FilterClause = { id: string; field: string; value: string };
+type FilterMode = "and" | "or";
+
+const FILTER_FIELDS = [
+  { key: "status", label: "Status", options: LEAD_STATUSES as readonly string[] },
+  { key: "intent_category", label: "Intent", options: INTENT_CATEGORIES as readonly string[] },
+  { key: "interest_level", label: "Interest", options: ["high", "medium", "low", "none"] as readonly string[] },
+  { key: "source_campaign", label: "Campaign", options: null as null },
+  { key: "ad_set", label: "Ad Set", options: null as null },
+];
+
 export default function Leads() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [filterIntent, setFilterIntent] = useState("");
   const [view, setView] = useState<"pipeline" | "list">("pipeline");
+
+  // Multi-filter
+  const [filters, setFilters] = useState<FilterClause[]>([]);
+  const [filterMode, setFilterMode] = useState<FilterMode>("and");
+  const [showAddFilter, setShowAddFilter] = useState(false);
+  const [pendingField, setPendingField] = useState("");
+  const [pendingValue, setPendingValue] = useState("");
+  const addFilterRef = useRef<HTMLDivElement>(null);
 
   // Bulk selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -78,9 +106,7 @@ export default function Leads() {
   } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Extra-data column filter
-  const [filterExtraKey, setFilterExtraKey] = useState("");
-  const [filterExtraValue, setFilterExtraValue] = useState("");
+  // (extra-data column filter replaced by multi-filter system below)
 
   // Sort state
   const [sortCol, setSortCol] = useState<string>("");
@@ -98,27 +124,21 @@ export default function Leads() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        colMenuRef.current &&
-        !colMenuRef.current.contains(e.target as Node)
-      ) {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node))
         setShowColMenu(false);
-      }
+      if (addFilterRef.current && !addFilterRef.current.contains(e.target as Node))
+        setShowAddFilter(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const { data: leads = [], isLoading } = useQuery({
-    queryKey: ["leads", search, filterIntent],
+    queryKey: ["leads", search],
     queryFn: () =>
       api
         .get("/leads", {
-          params: {
-            search: search || undefined,
-            intent_category: filterIntent || undefined,
-            limit: 500,
-          },
+          params: { search: search || undefined, limit: 500 },
         })
         .then((r) => r.data),
   });
@@ -207,15 +227,44 @@ export default function Leads() {
     return Array.from(keys).sort();
   }, [leads]);
 
-  // Apply extra_data filter on top of server-filtered results
+  // Multi-filter evaluation (client-side AND/OR)
   const filteredLeads = useMemo(() => {
-    if (!filterExtraKey || !filterExtraValue.trim()) return leads;
-    const val = filterExtraValue.trim().toLowerCase();
+    if (filters.length === 0) return leads;
     return leads.filter((l: any) => {
-      const v = l.extra_data?.[filterExtraKey];
-      return v != null && String(v).toLowerCase().includes(val);
+      const results = filters.map(({ field, value }) => {
+        const raw =
+          l[field] != null ? String(l[field]) : String(l.extra_data?.[field] ?? "");
+        return raw.toLowerCase().includes(value.toLowerCase());
+      });
+      return filterMode === "and" ? results.every(Boolean) : results.some(Boolean);
     });
-  }, [leads, filterExtraKey, filterExtraValue]);
+  }, [leads, filters, filterMode]);
+
+  // All available filter fields (standard + discovered extra keys)
+  const allFilterFields = useMemo(
+    () => [
+      ...FILTER_FIELDS,
+      ...extraKeys
+        .filter((k) => !FILTER_FIELDS.some((f) => f.key === k))
+        .map((k) => ({ key: k, label: k, options: null as null })),
+    ],
+    [extraKeys],
+  );
+
+  const selectedFilterField = allFilterFields.find((f) => f.key === pendingField);
+
+  const addFilter = () => {
+    if (!pendingField || !pendingValue.trim()) return;
+    setFilters((prev) => [
+      ...prev,
+      { id: `${pendingField}-${Date.now()}`, field: pendingField, value: pendingValue.trim() },
+    ]);
+    setPendingValue("");
+    setShowAddFilter(false);
+  };
+
+  const removeFilter = (id: string) =>
+    setFilters((prev) => prev.filter((f) => f.id !== id));
 
   // Sort
   const handleSort = useCallback((col: string) => {
@@ -261,7 +310,7 @@ export default function Leads() {
 
       <main className="px-4 py-6">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 mb-4 max-w-7xl mx-auto">
+        <div className="flex flex-wrap items-center gap-3 mb-2 max-w-7xl mx-auto">
           <input
             type="text"
             placeholder="Search leads…"
@@ -269,48 +318,90 @@ export default function Leads() {
             onChange={(e) => setSearch(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
           />
-          <select
-            value={filterIntent}
-            onChange={(e) => setFilterIntent(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-          >
-            <option value="">All Intents</option>
-            <option value="interested">Interested</option>
-            <option value="callback_requested">Callback</option>
-            <option value="payment_pending">Payment Pending</option>
-            <option value="not_interested">Not Interested</option>
-            <option value="no_answer">No Answer</option>
-            <option value="future_planning">Future Planning</option>
-          </select>
 
-          {/* Extra-data filters */}
-          {extraKeys.length > 0 && (
-            <>
-              <select
-                value={filterExtraKey}
-                onChange={(e) => {
-                  setFilterExtraKey(e.target.value);
-                  setFilterExtraValue("");
-                }}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-              >
-                <option value="">Filter by field…</option>
-                {extraKeys.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </select>
-              {filterExtraKey && (
-                <input
-                  type="text"
-                  placeholder={`Value for ${filterExtraKey}…`}
-                  value={filterExtraValue}
-                  onChange={(e) => setFilterExtraValue(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-                />
-              )}
-            </>
+          {/* Add Filter */}
+          <div className="relative" ref={addFilterRef}>
+            <button
+              onClick={() => {
+                setShowAddFilter((v) => !v);
+                setPendingField("");
+                setPendingValue("");
+              }}
+              className="flex items-center gap-1 border border-dashed border-gray-400 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-[#FF6600] hover:text-[#FF6600] transition"
+            >
+              <span className="text-base leading-none">+</span> Add Filter
+            </button>
+            {showAddFilter && (
+              <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-64">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3">
+                  Add Filter
+                </p>
+                <div className="space-y-2">
+                  <select
+                    value={pendingField}
+                    onChange={(e) => {
+                      setPendingField(e.target.value);
+                      setPendingValue("");
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                  >
+                    <option value="">Choose field…</option>
+                    {allFilterFields.map((f) => (
+                      <option key={f.key} value={f.key}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                  {pendingField &&
+                    (selectedFilterField?.options ? (
+                      <select
+                        value={pendingValue}
+                        onChange={(e) => setPendingValue(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                      >
+                        <option value="">Choose value…</option>
+                        {selectedFilterField.options.map((o) => (
+                          <option key={o} value={o} className="capitalize">
+                            {o.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Filter value…"
+                        value={pendingValue}
+                        onChange={(e) => setPendingValue(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addFilter()}
+                        autoFocus
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+                      />
+                    ))}
+                  <button
+                    onClick={addFilter}
+                    disabled={!pendingField || !pendingValue.trim()}
+                    className="w-full py-1.5 bg-[#FF6600] text-white text-sm rounded-lg disabled:opacity-40 hover:bg-orange-600 transition"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* AND / OR toggle — only shown when 2+ filters */}
+          {filters.length >= 2 && (
+            <div className="flex gap-0.5 bg-gray-200 rounded-lg p-0.5">
+              {(["and", "or"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setFilterMode(m)}
+                  className={`px-3 py-1 text-xs rounded-md font-semibold uppercase transition ${filterMode === m ? "bg-white shadow text-gray-800" : "text-gray-500"}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Column visibility (list view only) */}
@@ -370,6 +461,39 @@ export default function Leads() {
             </button>
           </div>
         </div>
+
+        {/* Active filter chips */}
+        {filters.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-3 max-w-7xl mx-auto">
+            {filters.map(({ id, field, value }) => {
+              const fieldLabel = allFilterFields.find((f) => f.key === field)?.label ?? field;
+              return (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-medium px-2.5 py-1 rounded-full"
+                >
+                  <span className="text-orange-400">{fieldLabel}:</span>
+                  {value.replace(/_/g, " ")}
+                  <button
+                    onClick={() => removeFilter(id)}
+                    className="text-orange-400 hover:text-orange-600 leading-none ml-0.5"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+            <button
+              onClick={() => setFilters([])}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Clear all
+            </button>
+            <span className="text-xs text-gray-400 ml-auto">
+              {filteredLeads.length} of {leads.length} leads
+            </span>
+          </div>
+        )}
 
         {/* Bulk Action Bar — appears when list view & any selected */}
         {view === "list" && selected.size > 0 && (
@@ -621,7 +745,9 @@ export default function Leads() {
                         "Phone",
                         "Status",
                         "Intent",
+                        "Interest",
                         "Campaign",
+                        "Followup",
                         "Updated",
                       ] as const
                     ).map((col) => (
@@ -698,8 +824,27 @@ export default function Leads() {
                           </span>
                         )}
                       </td>
+                      <td className="px-4 py-3">
+                        {lead.interest_level ? (
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${INTEREST_COLORS[lead.interest_level] ?? "bg-gray-100 text-gray-600"}`}
+                          >
+                            {lead.interest_level}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         {lead.source_campaign || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                        {lead.next_followup_at
+                          ? new Date(lead.next_followup_at).toLocaleDateString(
+                              undefined,
+                              { month: "short", day: "numeric", year: "2-digit" },
+                            )
+                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         {lead.updated_at

@@ -39,19 +39,11 @@ interface CustomFieldDef {
   options: string[];
 }
 
-const DEFAULT_STATUS_OPTIONS = [
-  "follow up",
-  "highly interested",
-  "not interested",
-  "not fit",
-  "registration paid",
-  "paid",
-  "junk lead",
-  "workshop paid",
-  "demo attended",
-  "future prospect",
-  "online class",
-];
+interface CustomFieldDef {
+  name: string;
+  label: string;
+  options: string[];
+}
 
 function DynamicOptionsEditor({
   title,

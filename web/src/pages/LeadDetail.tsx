@@ -546,13 +546,16 @@ function EditLeadModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function useLeadStatusOptions(): string[] {
+const DEFAULT_ENROLLMENT_OPTIONS = ["none", "demo_scheduled", "demo_attended", "enrolled", "dropped"];
+
+function useAdminSettingsOptions() {
   const { data: settings = [] } = useQuery<{ key: string; value: string }[]>({
     queryKey: ["admin", "settings"],
     queryFn: () => api.get("/admin/settings").then((r) => r.data),
     staleTime: 5 * 60_000,
   });
-  return useMemo(() => {
+
+  const statusOptions = useMemo(() => {
     const raw = settings.find((s) => s.key === "lead_status_options")?.value;
     if (!raw) return DEFAULT_STATUS_OPTIONS;
     try {
@@ -564,17 +567,8 @@ function useLeadStatusOptions(): string[] {
       return DEFAULT_STATUS_OPTIONS;
     }
   }, [settings]);
-}
 
-const DEFAULT_ENROLLMENT_OPTIONS = ["none", "demo_scheduled", "demo_attended", "enrolled", "dropped"];
-
-function useEnrollmentStatusOptions(): string[] {
-  const { data: settings = [] } = useQuery<{ key: string; value: string }[]>({
-    queryKey: ["admin", "settings"],
-    queryFn: () => api.get("/admin/settings").then((r) => r.data),
-    staleTime: 5 * 60_000,
-  });
-  return useMemo(() => {
+  const enrollmentStatusOptions = useMemo(() => {
     const raw = settings.find((s) => s.key === "enrollment_status_options")?.value;
     if (!raw) return DEFAULT_ENROLLMENT_OPTIONS;
     try {
@@ -586,13 +580,14 @@ function useEnrollmentStatusOptions(): string[] {
       return DEFAULT_ENROLLMENT_OPTIONS;
     }
   }, [settings]);
+
+  return { statusOptions, enrollmentStatusOptions };
 }
 
 export default function LeadDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const statusOptions = useLeadStatusOptions();
-  const enrollmentStatusOptions = useEnrollmentStatusOptions();
+  const { statusOptions, enrollmentStatusOptions } = useAdminSettingsOptions();
   const [notes, setNotes] = useState("");
   const [conversationDraft, setConversationDraft] = useState<string | null>(
     null,
@@ -1055,7 +1050,7 @@ export default function LeadDetail() {
               >
                 {enrollmentStatusOptions.map((v) => (
                   <option key={v} value={v}>
-                    {v === "none" ? "None" : v.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    {v === "none" ? "None" : v.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </option>
                 ))}
               </select>

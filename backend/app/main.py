@@ -5,6 +5,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.core.config import settings
 from app.core.database import Base, engine
@@ -48,6 +49,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Compress JSON responses ≥ 1 KB — reduces payload size by ~70–80 %
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,

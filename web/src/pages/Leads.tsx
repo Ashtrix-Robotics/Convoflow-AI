@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  useDeferredValue,
+} from "react";
 import NavBar from "../components/NavBar";
 import { PipelineSkeleton, TableSkeleton } from "../components/Skeleton";
 import api from "../services/api";
@@ -256,6 +263,11 @@ export default function Leads() {
 
   const [search, setSearch] = useState("");
 
+  // Defer the search term so that rapid keystrokes do NOT fire a new API request
+  // on every character — React schedules the deferred update only when the browser
+  // is idle, naturally debouncing the query key without a manual setTimeout.
+  const debouncedSearch = useDeferredValue(search);
+
   // Persisted state — URL params take priority, then localStorage, then defaults
   const savedPrefs = useMemo(() => loadPrefs(), []);
   const [view, setView] = useState<"pipeline" | "list">(() => {
@@ -343,13 +355,15 @@ export default function Leads() {
   }, []);
 
   const { data: leads = [], isLoading } = useQuery({
-    queryKey: ["leads", search],
+    queryKey: ["leads", debouncedSearch],
     queryFn: () =>
       api
         .get("/leads", {
-          params: { search: search || undefined, limit: 500 },
+          params: { search: debouncedSearch || undefined, limit: 500 },
         })
         .then((r) => r.data),
+    // Leads are valid for 60 s — avoids re-fetching on every page navigation
+    staleTime: 60_000,
   });
 
   const { data: agents = [] } = useQuery({

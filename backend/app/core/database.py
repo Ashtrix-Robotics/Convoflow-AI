@@ -30,8 +30,11 @@ if not settings.database_url:
 
 engine = create_engine(
     settings.database_url,
-    pool_pre_ping=True,   # detect stale connections
-    pool_recycle=300,     # recycle connections every 5 min (Supabase idle timeout)
+    pool_pre_ping=True,    # detect stale connections
+    pool_recycle=300,      # recycle connections every 5 min (Supabase idle timeout)
+    pool_size=10,          # raised from default 5 — prevents starvation under concurrency
+    max_overflow=20,       # raised from default 10 — burst headroom (total max: 30)
+    pool_timeout=30,       # wait up to 30 s for a connection before raising
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

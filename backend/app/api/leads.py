@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -353,32 +353,36 @@ def bulk_lead_action(
     failed = 0
     errors: list[str] = []
     now = datetime.now(timezone.utc)
+    requested_ids = set(payload.lead_ids)
 
     if payload.action == "change_status":
         if not payload.status:
             raise HTTPException(status_code=422, detail="'status' is required for change_status action")
-        for lead_id in payload.lead_ids:
-            lead = db.query(Lead).filter(Lead.id == lead_id).first()
-            if not lead:
-                failed += 1
-                errors.append(f"{lead_id}: not found")
-                continue
-            lead.status = payload.status.value if hasattr(payload.status, "value") else payload.status
+        new_status = payload.status.value if hasattr(payload.status, "value") else payload.status
+        # Batch fetch: one query for all IDs instead of N queries
+        found_leads = db.query(Lead).filter(Lead.id.in_(requested_ids)).all()
+        found_ids = {lead.id for lead in found_leads}
+        for lead in found_leads:
+            lead.status = new_status
             lead.updated_at = now
             updated += 1
+        missing = requested_ids - found_ids
+        failed += len(missing)
+        errors.extend(f"{lid}: not found" for lid in missing)
 
     elif payload.action == "change_intent":
         if not payload.intent_category:
             raise HTTPException(status_code=422, detail="'intent_category' is required for change_intent action")
-        for lead_id in payload.lead_ids:
-            lead = db.query(Lead).filter(Lead.id == lead_id).first()
-            if not lead:
-                failed += 1
-                errors.append(f"{lead_id}: not found")
-                continue
-            lead.intent_category = payload.intent_category.value if hasattr(payload.intent_category, "value") else payload.intent_category
+        new_intent = payload.intent_category.value if hasattr(payload.intent_category, "value") else payload.intent_category
+        found_leads = db.query(Lead).filter(Lead.id.in_(requested_ids)).all()
+        found_ids = {lead.id for lead in found_leads}
+        for lead in found_leads:
+            lead.intent_category = new_intent
             lead.updated_at = now
             updated += 1
+        missing = requested_ids - found_ids
+        failed += len(missing)
+        errors.extend(f"{lid}: not found" for lid in missing)
 
     elif payload.action == "assign":
         if not payload.agent_id:
@@ -386,60 +390,79 @@ def bulk_lead_action(
         target_agent = db.query(Agent).filter(Agent.id == payload.agent_id, Agent.is_active.is_(True)).first()
         if not target_agent:
             raise HTTPException(status_code=404, detail="Target agent not found or inactive")
-        for lead_id in payload.lead_ids:
-            lead = db.query(Lead).filter(Lead.id == lead_id).first()
-            if not lead:
-                failed += 1
-                errors.append(f"{lead_id}: not found")
-                continue
+        found_leads = db.query(Lead).filter(Lead.id.in_(requested_ids)).all()
+        found_ids = {lead.id for lead in found_leads}
+        for lead in found_leads:
             lead.assigned_agent_id = payload.agent_id
             lead.updated_at = now
             updated += 1
+        missing = requested_ids - found_ids
+        failed += len(missing)
+        errors.extend(f"{lid}: not found" for lid in missing)
 
     elif payload.action == "delete":
         from app.models.models import FollowUp, WhatsAppConversation, WhatsAppMessage
-        for lead_id in payload.lead_ids:
-            lead = db.query(Lead).filter(Lead.id == lead_id).first()
-            if not lead:
-                failed += 1
-                errors.append(f"{lead_id}: not found")
-                continue
-            # Cascade delete related records
-            conv = db.query(WhatsAppConversation).filter(WhatsAppConversation.lead_id == lead_id).first()
-            if conv:
-                db.query(WhatsAppMessage).filter(WhatsAppMessage.conversation_id == conv.id).delete()
-                db.delete(conv)
-            for call in db.query(CallRecord).filter(CallRecord.lead_id == lead_id).all():
-                db.query(FollowUp).filter(FollowUp.call_id == call.id).delete()
-                db.delete(call)
-            db.delete(lead)
-            deleted += 1
+        # Verify which IDs exist upfront (one query)
+        existing_ids = {
+            row[0]
+            for row in db.query(Lead.id).filter(Lead.id.in_(requested_ids)).all()
+        }
+        missing = requested_ids - existing_ids
+        failed += len(missing)
+        errors.extend(f"{lid}: not found" for lid in missing)
+
+        if existing_ids:
+            # Gather call IDs for these leads (one query)
+            call_ids = [
+                row[0]
+                for row in db.query(CallRecord.id).filter(CallRecord.lead_id.in_(existing_ids)).all()
+            ]
+            # Gather conversation IDs for these leads (one query)
+            conv_ids = [
+                row[0]
+                for row in db.query(WhatsAppConversation.id)
+                .filter(WhatsAppConversation.lead_id.in_(existing_ids))
+                .all()
+            ]
+
+            # Cascade delete in correct dependency order (bulk DELETE per table)
+            if call_ids:
+                db.query(FollowUp).filter(FollowUp.call_id.in_(call_ids)).delete(synchronize_session=False)
+            if conv_ids:
+                db.query(WhatsAppMessage).filter(
+                    WhatsAppMessage.conversation_id.in_(conv_ids)
+                ).delete(synchronize_session=False)
+                db.query(WhatsAppConversation).filter(
+                    WhatsAppConversation.id.in_(conv_ids)
+                ).delete(synchronize_session=False)
+            if call_ids:
+                db.query(CallRecord).filter(CallRecord.id.in_(call_ids)).delete(synchronize_session=False)
+            deleted = db.query(Lead).filter(Lead.id.in_(existing_ids)).delete(synchronize_session=False)
 
     elif payload.action == "update_field":
         if not payload.field_name:
             raise HTTPException(status_code=422, detail="'field_name' is required for update_field action")
         fname = payload.field_name
         fval = payload.field_value or ""
-        # Top-level writeable fields
         _BULK_WRITABLE = {
             "source_campaign", "ad_set", "interest_level",
             "course_interested_in", "payment_link_url", "notes",
         }
-        for lead_id in payload.lead_ids:
-            lead = db.query(Lead).filter(Lead.id == lead_id).first()
-            if not lead:
-                failed += 1
-                errors.append(f"{lead_id}: not found")
-                continue
+        # Batch fetch all leads at once
+        found_leads = db.query(Lead).filter(Lead.id.in_(requested_ids)).all()
+        found_ids = {lead.id for lead in found_leads}
+        for lead in found_leads:
             if fname in _BULK_WRITABLE:
                 setattr(lead, fname, fval if fval else None)
             else:
-                # Store in extra_data JSON
                 ed = dict(lead.extra_data or {})
                 ed[fname] = fval
                 lead.extra_data = ed
             lead.updated_at = now
             updated += 1
+        missing = requested_ids - found_ids
+        failed += len(missing)
+        errors.extend(f"{lid}: not found" for lid in missing)
 
     else:
         raise HTTPException(status_code=422, detail=f"Unknown action '{payload.action}'")

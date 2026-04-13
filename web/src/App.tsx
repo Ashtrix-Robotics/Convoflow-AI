@@ -1,16 +1,29 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import CallDetail from "./pages/CallDetail";
-import Login from "./pages/Login";
-import Leads from "./pages/Leads";
-import LeadDetail from "./pages/LeadDetail";
-import AdminSettings from "./pages/AdminSettings";
-import TeamManagement from "./pages/TeamManagement";
-import CampaignKnowledge from "./pages/CampaignKnowledge";
-import Profile from "./pages/Profile";
-import ResetPassword from "./pages/ResetPassword";
-import ServerWakeUp from "./components/ServerWakeUp";
 import { TOKEN_KEY } from "./config";
+
+// ── Lazy-load every page so each route gets its own JS chunk ─────────────────
+// Users only download the code for pages they actually visit.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CallDetail = lazy(() => import("./pages/CallDetail"));
+const Login = lazy(() => import("./pages/Login"));
+const Leads = lazy(() => import("./pages/Leads"));
+const LeadDetail = lazy(() => import("./pages/LeadDetail"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings"));
+const TeamManagement = lazy(() => import("./pages/TeamManagement"));
+const CampaignKnowledge = lazy(() => import("./pages/CampaignKnowledge"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ServerWakeUp = lazy(() => import("./components/ServerWakeUp"));
+
+// ── Minimal loading indicator shown during chunk download ────────────────────
+function PageLoader() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-[#FF6600] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 const isAuthenticated = () => !!localStorage.getItem(TOKEN_KEY);
 
@@ -20,7 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <>
+    <Suspense fallback={<PageLoader />}>
       {/* Global cold-start banner — visible on any page */}
       <ServerWakeUp />
       <Routes>
@@ -92,6 +105,6 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </Suspense>
   );
 }

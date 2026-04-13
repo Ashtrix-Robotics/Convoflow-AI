@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "../services/api";
 import { supabase } from "../lib/supabase";
 
-type NavSection = "dashboard" | "leads" | "admin" | "team";
+type NavSection = "dashboard" | "leads" | "classes" | "admin" | "team";
 
 interface NavBarProps {
   /** Which top-level section is currently active — highlights the nav link. */
@@ -27,6 +27,7 @@ interface NavBarProps {
 const NAV_ITEMS: { key: NavSection; label: string; to: string }[] = [
   { key: "dashboard", label: "Dashboard", to: "/" },
   { key: "leads", label: "Leads", to: "/leads" },
+  { key: "classes", label: "Classes", to: "/admin/classes" },
   { key: "team", label: "Team", to: "/admin/team" },
   { key: "admin", label: "Settings", to: "/admin/settings" },
 ];

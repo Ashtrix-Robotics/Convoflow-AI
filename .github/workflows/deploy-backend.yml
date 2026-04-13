@@ -17,10 +17,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check Python syntax
+      - name: Check Python syntax & Migrations
         run: |
-          pip install flake8
+          pip install flake8 alembic
           flake8 backend/app --count --select=E9,F63,F7,F82 --show-source --statistics
+          cd backend
+          HEADS=$(alembic heads | grep -v '^[[:space:]]*$' | grep -v 'INFO' | wc -l)
+          if [ "$HEADS" -gt 1 ]; then
+            echo "::error::Multiple alembic heads detected! Please merge heads."
+            alembic heads
+            exit 1
+          fi
 
   deploy:
     needs: lint
@@ -49,14 +56,17 @@ jobs:
           echo "Waiting for Render to build and deploy (free tier can take 5-10 min)..."
 
           # Get the expected version from the commit
+          EXPECTED_VERSION="${{ github.sha }}"
+          echo "Expected version to match: $EXPECTED_VERSION"
+
           for attempt in $(seq 1 60); do
             HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL" --max-time 10)
             if [ "$HTTP_CODE" = "200" ]; then
               VERSION=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','?'))" 2>/dev/null || echo "?")
-              echo "  Attempt $attempt: HTTP 200, version=$VERSION"
-              # After 3 consecutive 200s, consider it deployed
-              if [ "$attempt" -gt 3 ]; then
-                echo "✅ Backend is live!"
+              echo "  Attempt $attempt: HTTP 200, version=$VERSION (expected=$EXPECTED_VERSION)"
+              # Check if the deployed version matches our code!
+              if [ "$VERSION" = "$EXPECTED_VERSION" ]; then
+                echo "✅ Backend is live with correct version!"
                 cat /tmp/health.json
                 exit 0
               fi

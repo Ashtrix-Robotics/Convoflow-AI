@@ -1,3 +1,4 @@
+import os
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -81,4 +82,5 @@ app.include_router(agents_admin.router)  # has router-level auth
 @app.get("/health")
 @limiter.limit("30/minute")
 def health_check(request: Request):
-    return {"status": "ok", "service": "Convoflow AI API", "version": "12"}
+    version = os.getenv("RENDER_GIT_COMMIT", "12")
+    return {"status": "ok", "service": "Convoflow AI API", "version": version}

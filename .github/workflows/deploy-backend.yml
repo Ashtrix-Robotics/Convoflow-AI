@@ -60,7 +60,7 @@ jobs:
           echo "Expected version to match: $EXPECTED_VERSION"
 
           for attempt in $(seq 1 60); do
-            HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL" --max-time 10)
+            HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL" --max-time 10 || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
               VERSION=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','?'))" 2>/dev/null || echo "?")
               echo "  Attempt $attempt: HTTP 200, version=$VERSION (expected=$EXPECTED_VERSION)"

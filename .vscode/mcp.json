@@ -1,47 +1,59 @@
 {
-  "servers": {
-    "playwright-test": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "playwright",
-        "run-test-mcp-server"
-      ]
-    },
-    "CodeGraphContext": {
-      "type": "stdio",
-      "command": "E:\\Ashtrix\\Project Works\\Sales-Autotmation\\.venv\\Scripts\\cgc.EXE",
-      "args": [
-        "mcp",
-        "start"
-      ],
-      "env": {
-        "NEO4J_URI": "neo4j+s://46126187.databases.neo4j.io",
-        "NEO4J_USERNAME": "46126187",
-        "NEO4J_PASSWORD": "GoUXVrwRzpohPH_wzYa3nd5fUe8OT9O8XeQgR2purzI",
-        "DEFAULT_DATABASE": "falkordb",
-        "FALKORDB_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\global\\db\\falkordb",
-        "FALKORDB_SOCKET_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\global\\db\\falkordb.sock",
-        "INDEX_VARIABLES": "true",
-        "ALLOW_DB_DELETION": "false",
-        "DEBUG_LOGS": "false",
-        "ENABLE_APP_LOGS": "CRITICAL",
-        "LIBRARY_LOG_LEVEL": "WARNING",
-        "LOG_FILE_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\logs\\cgc.log",
-        "MAX_FILE_SIZE_MB": "10",
-        "IGNORE_TEST_FILES": "false",
-        "IGNORE_HIDDEN_FILES": "true",
-        "ENABLE_AUTO_WATCH": "false",
-        "COMPLEXITY_THRESHOLD": "10",
-        "MAX_DEPTH": "unlimited",
-        "PARALLEL_WORKERS": "4",
-        "CACHE_ENABLED": "true",
-        "IGNORE_DIRS": "node_modules,venv,.venv,env,.env,dist,build,target,out,.git,.idea,.vscode,__pycache__",
-        "INDEX_SOURCE": "true",
-        "SCIP_INDEXER": "false",
-        "SKIP_EXTERNAL_RESOLUTION": "false"
-      }
-    }
-  },
-  "inputs": []
+	"servers": {
+		"playwright-test": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"playwright",
+				"run-test-mcp-server"
+			]
+		},
+		"CodeGraphContext": {
+			"type": "stdio",
+			"command": "E:\\Ashtrix\\Project Works\\Sales-Autotmation\\.venv\\Scripts\\cgc.EXE",
+			"args": [
+				"mcp",
+				"start"
+			],
+			"env": {
+				"NEO4J_URI": "neo4j+s://46126187.databases.neo4j.io",
+				"NEO4J_USERNAME": "46126187",
+				"NEO4J_PASSWORD": "GoUXVrwRzpohPH_wzYa3nd5fUe8OT9O8XeQgR2purzI",
+				"DEFAULT_DATABASE": "falkordb",
+				"FALKORDB_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\global\\db\\falkordb",
+				"FALKORDB_SOCKET_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\global\\db\\falkordb.sock",
+				"INDEX_VARIABLES": "true",
+				"ALLOW_DB_DELETION": "false",
+				"DEBUG_LOGS": "false",
+				"ENABLE_APP_LOGS": "CRITICAL",
+				"LIBRARY_LOG_LEVEL": "WARNING",
+				"LOG_FILE_PATH": "C:\\Users\\Sreenath\\.codegraphcontext\\logs\\cgc.log",
+				"MAX_FILE_SIZE_MB": "10",
+				"IGNORE_TEST_FILES": "false",
+				"IGNORE_HIDDEN_FILES": "true",
+				"ENABLE_AUTO_WATCH": "false",
+				"COMPLEXITY_THRESHOLD": "10",
+				"MAX_DEPTH": "unlimited",
+				"PARALLEL_WORKERS": "4",
+				"CACHE_ENABLED": "true",
+				"IGNORE_DIRS": "node_modules,venv,.venv,env,.env,dist,build,target,out,.git,.idea,.vscode,__pycache__",
+				"INDEX_SOURCE": "true",
+				"SCIP_INDEXER": "false",
+				"SKIP_EXTERNAL_RESOLUTION": "false"
+			}
+		},
+		"com.supabase/mcp": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@supabase/mcp-server-supabase@0.7.0",
+				"--project-ref",
+				"dwswmirwfsqkerybszsg"
+			],
+			"env": {
+				"SUPABASE_ACCESS_TOKEN": "sbp_8fd7b6a4386c102792bf5bc6ede1532ffe897afb"
+			}
+		}
+	},
 }

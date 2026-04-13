@@ -77,6 +77,7 @@ const SORTABLE_COLS: Record<string, string> = {
   Followup: "next_followup_at",
   Updated: "updated_at",
   Center: "class_center_name",
+  Batch: "class_batch_label",
   Enrolled: "enrollment_status",
 };
 
@@ -110,6 +111,11 @@ const FILTER_FIELDS = [
   {
     key: "class_center_name",
     label: "Center",
+    options: null as null,
+  },
+  {
+    key: "class_batch_label",
+    label: "Batch",
     options: null as null,
   },
   { key: "source_campaign", label: "Campaign", options: null as null },
@@ -1100,6 +1106,7 @@ export default function Leads() {
                         "Intent",
                         "Interest",
                         "Center",
+                        "Batch",
                         "Enrolled",
                         "Campaign",
                         "Followup",
@@ -1196,6 +1203,23 @@ export default function Leads() {
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap">
                             {lead.class_center_name}
                           </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      {/* Batch label + time slot */}
+                      <td className="px-4 py-3">
+                        {lead.class_batch_label ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                              {lead.class_batch_label}
+                            </span>
+                            {lead.class_batch_time_slot && (
+                              <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                {lead.class_batch_time_slot}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}

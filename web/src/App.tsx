@@ -12,6 +12,7 @@ const LeadDetail = lazy(() => import("./pages/LeadDetail"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const CampaignKnowledge = lazy(() => import("./pages/CampaignKnowledge"));
+const ClassManagement = lazy(() => import("./pages/ClassManagement"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ServerWakeUp = lazy(() => import("./components/ServerWakeUp"));
@@ -95,6 +96,14 @@ export default function App() {
           }
         />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/admin/classes"
+          element={
+            <ProtectedRoute>
+              <ClassManagement />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/profile"
           element={

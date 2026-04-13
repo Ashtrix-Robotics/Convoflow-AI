@@ -53,24 +53,34 @@ const DEFAULT_STATUS_OPTIONS = [
   "online class",
 ];
 
-function StatusOptionsEditor({
+function DynamicOptionsEditor({
+  title,
+  description,
+  icon,
+  settingKey,
+  defaultOptions,
   settings,
   onSave,
   isSaving,
 }: {
+  title: string;
+  description: string;
+  icon: string;
+  settingKey: string;
+  defaultOptions: string[];
   settings: Setting[];
-  onSave: (value: string) => void;
+  onSave: (key: string, value: string) => void;
   isSaving: boolean;
 }) {
   const raw =
-    settings.find((s) => s.key === "lead_status_options")?.value ??
-    JSON.stringify(DEFAULT_STATUS_OPTIONS);
+    settings.find((s) => s.key === settingKey)?.value ??
+    JSON.stringify(defaultOptions);
   const [options, setOptions] = useState<string[]>(() => {
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : DEFAULT_STATUS_OPTIONS;
+      return Array.isArray(parsed) ? parsed : defaultOptions;
     } catch {
-      return DEFAULT_STATUS_OPTIONS;
+      return defaultOptions;
     }
   });
   const [newOption, setNewOption] = useState("");
@@ -89,14 +99,14 @@ function StatusOptionsEditor({
     if (!trimmed || options.includes(trimmed)) return;
     const next = [...options, trimmed];
     setOptions(next);
-    onSave(JSON.stringify(next));
+    onSave(settingKey, JSON.stringify(next));
     setNewOption("");
   };
 
   const handleRemove = (opt: string) => {
     const next = options.filter((o) => o !== opt);
     setOptions(next);
-    onSave(JSON.stringify(next));
+    onSave(settingKey, JSON.stringify(next));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -109,12 +119,10 @@ function StatusOptionsEditor({
   return (
     <div className="bg-white rounded-xl shadow-sm p-5 border border-orange-200">
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-xl">🏷️</span>
-        <h3 className="font-bold text-gray-800 text-lg">Lead Status Options</h3>
+        <span className="text-xl">{icon}</span>
+        <h3 className="font-bold text-gray-800 text-lg">{title}</h3>
       </div>
-      <p className="text-sm text-gray-500 mb-4">
-        Manage the list of statuses available in the lead status dropdown. Changes apply immediately across all lead pages.
-      </p>
+      <p className="text-sm text-gray-500 mb-4">{description}</p>
 
       <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
         {options.map((opt) => (
@@ -134,7 +142,7 @@ function StatusOptionsEditor({
         ))}
         {options.length === 0 && (
           <p className="text-sm text-gray-400 italic">
-            No status options defined. Add one below.
+            No options defined. Add one below.
           </p>
         )}
       </div>
@@ -144,7 +152,7 @@ function StatusOptionsEditor({
           value={newOption}
           onChange={(e) => setNewOption(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Add new status (e.g. interested)"
+          placeholder="Add new option"
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF6600] focus:outline-none"
         />
         <button
@@ -156,7 +164,7 @@ function StatusOptionsEditor({
         </button>
       </div>
       <p className="text-xs text-gray-400 mt-2">
-        Press Enter or click Add. Status values are case-insensitive.
+        Press Enter or click Add. Values are case-insensitive.
       </p>
     </div>
   );
@@ -632,10 +640,49 @@ export default function AdminSettings() {
 
         {/* Lead Status Options */}
         {!isLoading && (
-          <StatusOptionsEditor
+          <DynamicOptionsEditor
             settings={settings}
-            onSave={(value) =>
-              updateMutation.mutate({ key: "lead_status_options", value })
+            settingKey="lead_status_options"
+            title="Lead Status Options"
+            description="Manage the list of statuses available in the lead status dropdown. Changes apply immediately across all lead pages."
+            icon="🏷️"
+            defaultOptions={[
+              "follow up",
+              "highly interested",
+              "not interested",
+              "not fit",
+              "registration paid",
+              "paid",
+              "junk lead",
+              "workshop paid",
+              "demo attended",
+              "future prospect",
+              "online class",
+            ]}
+            onSave={(key, value) =>
+              updateMutation.mutate({ key, value })
+            }
+            isSaving={updateMutation.isPending}
+          />
+        )}
+
+        {/* Enrollment Status Options */}
+        {!isLoading && (
+          <DynamicOptionsEditor
+            settings={settings}
+            settingKey="enrollment_status_options"
+            title="Enrollment Status Options"
+            description="Manage the list of statuses available in the enrollment status dropdown used when assigning leads to a center/batch."
+            icon="🎓"
+            defaultOptions={[
+              "none",
+              "demo_scheduled",
+              "demo_attended",
+              "enrolled",
+              "dropped",
+            ]}
+            onSave={(key, value) =>
+              updateMutation.mutate({ key, value })
             }
             isSaving={updateMutation.isPending}
           />

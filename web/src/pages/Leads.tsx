@@ -106,7 +106,7 @@ const FILTER_FIELDS = [
   {
     key: "enrollment_status",
     label: "Enrollment",
-    options: ["none", "demo_scheduled", "demo_attended", "enrolled", "dropped"] as readonly string[],
+    options: null as null, // Load options from API instead
   },
   {
     key: "class_center_name",
@@ -1235,7 +1235,9 @@ export default function Leads() {
                                   ? "bg-purple-100 text-purple-700"
                                   : lead.enrollment_status === "demo_scheduled"
                                     ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-red-50 text-red-600"
+                                    : lead.enrollment_status === "dropped"
+                                      ? "bg-red-50 text-red-600"
+                                      : "bg-blue-100 text-blue-700"
                             }`}
                           >
                             {lead.enrollment_status.replace(/_/g, " ")}

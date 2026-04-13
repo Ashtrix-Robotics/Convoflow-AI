@@ -566,10 +566,33 @@ function useLeadStatusOptions(): string[] {
   }, [settings]);
 }
 
+const DEFAULT_ENROLLMENT_OPTIONS = ["none", "demo_scheduled", "demo_attended", "enrolled", "dropped"];
+
+function useEnrollmentStatusOptions(): string[] {
+  const { data: settings = [] } = useQuery<{ key: string; value: string }[]>({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.get("/admin/settings").then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+  return useMemo(() => {
+    const raw = settings.find((s) => s.key === "enrollment_status_options")?.value;
+    if (!raw) return DEFAULT_ENROLLMENT_OPTIONS;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0
+        ? parsed
+        : DEFAULT_ENROLLMENT_OPTIONS;
+    } catch {
+      return DEFAULT_ENROLLMENT_OPTIONS;
+    }
+  }, [settings]);
+}
+
 export default function LeadDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const statusOptions = useLeadStatusOptions();
+  const enrollmentStatusOptions = useEnrollmentStatusOptions();
   const [notes, setNotes] = useState("");
   const [conversationDraft, setConversationDraft] = useState<string | null>(
     null,
@@ -850,7 +873,9 @@ export default function LeadDetail() {
                         ? "bg-purple-100 text-purple-700"
                         : lead.enrollment_status === "demo_scheduled"
                           ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-600"
+                          : lead.enrollment_status === "dropped"
+                            ? "bg-red-100 text-red-600"
+                            : "bg-blue-100 text-blue-700"
                   }`}
                 >
                   {lead.enrollment_status.replace(/_/g, " ")}
@@ -1028,11 +1053,11 @@ export default function LeadDetail() {
                 onChange={(e) => setEnrollStatus(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
               >
-                <option value="none">None</option>
-                <option value="demo_scheduled">Demo Scheduled</option>
-                <option value="demo_attended">Demo Attended</option>
-                <option value="enrolled">Enrolled</option>
-                <option value="dropped">Dropped</option>
+                {enrollmentStatusOptions.map((v) => (
+                  <option key={v} value={v}>
+                    {v === "none" ? "None" : v.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

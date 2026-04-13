@@ -10,7 +10,7 @@ Indexes added:
   call_records        — created_at, agent_id
 
 Revision ID: a9f3b2c1d8e7
-Revises: f1e2d3c4b5a6
+Revises: 1a2b3c4d5e6f
 Create Date: 2026-04-13 08:00:00.000000
 """
 
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 
 
 revision: str = "a9f3b2c1d8e7"
-down_revision: Union[str, None] = "f1e2d3c4b5a6"
+down_revision: Union[str, None] = "1a2b3c4d5e6f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

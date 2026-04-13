@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.models import Agent, CallRecord, Lead
+from app.models.models import Agent, CallRecord, ClassBatch, ClassCenter, Lead
 from app.schemas.schemas import BulkLeadAction, BulkLeadResult, LeadCreate, LeadInbound, LeadOut, LeadUpdate
 from app.api.deps import get_current_agent
 from app.services.aisensy import sync_lead_whatsapp_state
@@ -167,7 +167,10 @@ def list_leads(
     agent: Agent = Depends(get_current_agent),
 ):
     """List leads with optional filters. Sorted by priority: new first, then by next_followup_at."""
-    q = db.query(Lead)
+    q = db.query(Lead).options(
+        joinedload(Lead.class_center),
+        joinedload(Lead.class_batch),
+    )
     if status_filter:
         q = q.filter(Lead.status == status_filter)
     resolved_intent = intent_category or intent
@@ -204,7 +207,10 @@ def my_leads(
     agent: Agent = Depends(get_current_agent),
 ):
     """Get leads assigned to the current agent (for mobile app queue)."""
-    q = db.query(Lead).filter(Lead.assigned_agent_id == agent.id)
+    q = db.query(Lead).options(
+        joinedload(Lead.class_center),
+        joinedload(Lead.class_batch),
+    ).filter(Lead.assigned_agent_id == agent.id)
     if status_filter:
         q = q.filter(Lead.status == status_filter)
 
@@ -224,7 +230,12 @@ def get_lead(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .options(joinedload(Lead.class_center), joinedload(Lead.class_batch))
+        .filter(Lead.id == lead_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
@@ -238,7 +249,12 @@ def update_lead(
     db: Session = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .options(joinedload(Lead.class_center), joinedload(Lead.class_batch))
+        .filter(Lead.id == lead_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     update_data = update.model_dump(exclude_unset=True)

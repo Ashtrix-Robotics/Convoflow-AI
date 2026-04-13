@@ -1,8 +1,8 @@
-﻿import uuid
-from datetime import datetime, timezone
+import uuid
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -30,8 +30,51 @@ class Agent(Base):
     leads: Mapped[List["Lead"]] = relationship("Lead", back_populates="assigned_agent")
 
 
+# ---------------------------------------------------------------------------# ClassCenter  — physical / online teaching locations
 # ---------------------------------------------------------------------------
-# Client  (kept for backward compat â€” new leads use Lead model)
+
+class ClassCenter(Base):
+    __tablename__ = "class_centers"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    address: Mapped[Optional[str]] = mapped_column(Text)
+    map_url: Mapped[Optional[str]] = mapped_column(String(500))
+    mode: Mapped[str] = mapped_column(String(20), default="offline")   # offline|online|hybrid
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    batches: Mapped[List["ClassBatch"]] = relationship(
+        "ClassBatch", back_populates="center", cascade="all, delete-orphan"
+    )
+    leads: Mapped[List["Lead"]] = relationship("Lead", back_populates="class_center")
+
+
+# ---------------------------------------------------------------------------
+# ClassBatch  — a specific date-range + time-slot at a center
+# ---------------------------------------------------------------------------
+
+class ClassBatch(Base):
+    __tablename__ = "class_batches"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    center_id: Mapped[str] = mapped_column(
+        ForeignKey("class_centers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    start_date: Mapped[Optional[date]] = mapped_column(Date)
+    end_date: Mapped[Optional[date]] = mapped_column(Date)
+    time_slot: Mapped[Optional[str]] = mapped_column(String(80))        # e.g. "11:30 AM – 12:30 PM"
+    mode: Mapped[str] = mapped_column(String(20), default="offline")   # overrides center mode if needed
+    capacity: Mapped[Optional[int]] = mapped_column(Integer)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    center: Mapped["ClassCenter"] = relationship("ClassCenter", back_populates="batches")
+    leads: Mapped[List["Lead"]] = relationship("Lead", back_populates="class_batch")
+
+
+# ---------------------------------------------------------------------------# Client  (kept for backward compat â€” new leads use Lead model)
 # ---------------------------------------------------------------------------
 
 class Client(Base):
@@ -101,17 +144,43 @@ class Lead(Base):
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     conversation_summary: Mapped[Optional[str]] = mapped_column(Text)      # manually entered call context
+
+    # Class enrollment
+    class_center_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("class_centers.id"), nullable=True, index=True
+    )
+    class_batch_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("class_batches.id"), nullable=True, index=True
+    )
+    # enrollment_status: none|demo_scheduled|demo_attended|enrolled|dropped
+    enrollment_status: Mapped[str] = mapped_column(String(30), default="none", index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
     assigned_agent: Mapped[Optional["Agent"]] = relationship("Agent", back_populates="leads")
     calls: Mapped[List["CallRecord"]] = relationship("CallRecord", back_populates="lead")
+    class_center: Mapped[Optional["ClassCenter"]] = relationship("ClassCenter", back_populates="leads")
+    class_batch: Mapped[Optional["ClassBatch"]] = relationship("ClassBatch", back_populates="leads")
     whatsapp_conversation: Mapped[Optional["WhatsAppConversation"]] = relationship(
         "WhatsAppConversation",
         back_populates="lead",
         uselist=False,
     )
+
+    # ── Computed properties for Pydantic serialisation (reads already-loaded relationships)
+    @property
+    def class_center_name(self) -> Optional[str]:
+        return self.class_center.name if self.class_center else None
+
+    @property
+    def class_batch_label(self) -> Optional[str]:
+        return self.class_batch.label if self.class_batch else None
+
+    @property
+    def class_batch_time_slot(self) -> Optional[str]:
+        return self.class_batch.time_slot if self.class_batch else None
 
 
 # ---------------------------------------------------------------------------

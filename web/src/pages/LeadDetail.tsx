@@ -649,6 +649,63 @@ export default function LeadDetail() {
     onSuccess: (nextLead) => refreshLeadViews(nextLead),
   });
 
+  // ── Class enrollment hooks ──────────────────────────────────────────────────
+  const { data: classCenters = [] } = useQuery<any[]>({
+    queryKey: ["class-centers"],
+    queryFn: () => api.get("/classes/centers").then((r) => r.data),
+    staleTime: 10 * 60_000,
+  });
+
+  const { data: allBatches = [] } = useQuery<any[]>({
+    queryKey: ["class-batches"],
+    queryFn: () => api.get("/classes/batches").then((r) => r.data),
+    staleTime: 10 * 60_000,
+  });
+
+  const [enrollCenter, setEnrollCenter] = useState<string>("");
+  const [enrollBatch, setEnrollBatch] = useState<string>("");
+  const [enrollStatus, setEnrollStatus] = useState<string>("none");
+  const [enrollFeedback, setEnrollFeedback] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  // Sync local state when lead data arrives
+  const [enrollSynced, setEnrollSynced] = useState(false);
+  if (lead && !enrollSynced) {
+    setEnrollCenter(lead.class_center_id ?? "");
+    setEnrollBatch(lead.class_batch_id ?? "");
+    setEnrollStatus(lead.enrollment_status ?? "none");
+    setEnrollSynced(true);
+  }
+
+  const batchesForCenter = allBatches.filter(
+    (b: any) => b.center_id === enrollCenter,
+  );
+
+  const updateEnrollment = useMutation({
+    mutationFn: (payload: Record<string, any>) =>
+      api
+        .patch(`/classes/leads/${id}/enrollment`, payload)
+        .then((r) => r.data),
+    onSuccess: () => {
+      refreshLeadViews();
+      setEnrollFeedback("Saved!");
+      setTimeout(() => setEnrollFeedback(null), 2500);
+    },
+    onError: (e: any) =>
+      setEnrollFeedback(e?.response?.data?.detail ?? "Save failed"),
+  });
+
+  const shareSchedule = useMutation({
+    mutationFn: () =>
+      api.post(`/classes/leads/${id}/share-schedule`).then((r) => r.data),
+    onSuccess: () => {
+      setShareFeedback("Schedule queued for delivery!");
+      setTimeout(() => setShareFeedback(null), 3000);
+    },
+    onError: (e: any) =>
+      setShareFeedback(e?.response?.data?.detail ?? "Failed to send"),
+  });
+
   if (isLoading)
     return (
       <div className="min-h-screen bg-gray-50">
@@ -772,6 +829,36 @@ export default function LeadDetail() {
             </div>
           </div>
 
+          {/* Class assignment summary badge */}
+          {lead.class_center_name && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium px-3 py-1 rounded-full">
+                🏫 {lead.class_center_name}
+                {lead.class_batch_label && (
+                  <span className="text-blue-500">• {lead.class_batch_label}</span>
+                )}
+                {lead.class_batch_time_slot && (
+                  <span className="text-blue-400">• {lead.class_batch_time_slot}</span>
+                )}
+              </span>
+              {lead.enrollment_status && lead.enrollment_status !== "none" && (
+                <span
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    lead.enrollment_status === "enrolled"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : lead.enrollment_status === "demo_attended"
+                        ? "bg-purple-100 text-purple-700"
+                        : lead.enrollment_status === "demo_scheduled"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-600"
+                  }`}
+                >
+                  {lead.enrollment_status.replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
+          )}
+
           {lead.callback_scheduled_at && (
             <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm text-yellow-800">
               Callback scheduled:{" "}
@@ -874,6 +961,124 @@ export default function LeadDetail() {
           >
             🎉 Converted
           </button>
+        </div>
+
+        {/* ── Class Assignment ─────────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold text-gray-700">🏫 Class Assignment</h3>
+            {enrollFeedback && (
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${enrollFeedback === "Saved!" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
+              >
+                {enrollFeedback}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Center */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Center</label>
+              <select
+                value={enrollCenter}
+                onChange={(e) => {
+                  setEnrollCenter(e.target.value);
+                  setEnrollBatch("");
+                }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+              >
+                <option value="">— Not Assigned —</option>
+                {classCenters.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.mode === "online" ? " (Online)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Batch */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Batch / Schedule
+              </label>
+              <select
+                value={enrollBatch}
+                onChange={(e) => setEnrollBatch(e.target.value)}
+                disabled={!enrollCenter}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600] disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">— Pick a batch —</option>
+                {batchesForCenter.map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label} • {b.time_slot ?? ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Enrollment status */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Enrollment Status
+              </label>
+              <select
+                value={enrollStatus}
+                onChange={(e) => setEnrollStatus(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
+              >
+                <option value="none">None</option>
+                <option value="demo_scheduled">Demo Scheduled</option>
+                <option value="demo_attended">Demo Attended</option>
+                <option value="enrolled">Enrolled</option>
+                <option value="dropped">Dropped</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+            <button
+              onClick={() =>
+                updateEnrollment.mutate({
+                  class_center_id: enrollCenter || null,
+                  class_batch_id: enrollBatch || null,
+                  enrollment_status: enrollStatus,
+                })
+              }
+              disabled={updateEnrollment.isPending}
+              className="bg-[#FF6600] hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+            >
+              {updateEnrollment.isPending ? "Saving…" : "Save Assignment"}
+            </button>
+
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => shareSchedule.mutate()}
+                disabled={
+                  shareSchedule.isPending ||
+                  !lead.class_batch_id ||
+                  !lead.class_center_id
+                }
+                title={
+                  !lead.class_batch_id || !lead.class_center_id
+                    ? "Save a center & batch assignment first"
+                    : "Send schedule details via email now (WhatsApp when API is ready)"
+                }
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+              >
+                <span>📤</span>
+                {shareSchedule.isPending ? "Sending…" : "Share Schedule"}
+              </button>
+              {shareFeedback && (
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${shareFeedback.includes("queued") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
+                >
+                  {shareFeedback}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Conversation Summary */}

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -37,6 +37,103 @@ class CallTag(str, Enum):
     connected = "connected"
     no_answer = "no_answer"
     wrong_number = "wrong_number"
+
+
+class EnrollmentStatus(str, Enum):
+    none = "none"
+    demo_scheduled = "demo_scheduled"
+    demo_attended = "demo_attended"
+    enrolled = "enrolled"
+    dropped = "dropped"
+
+
+# ---------------------------------------------------------------------------
+# ClassCenter / ClassBatch
+# ---------------------------------------------------------------------------
+
+class ClassCenterCreate(BaseModel):
+    name: str
+    address: str | None = None
+    map_url: str | None = None
+    mode: str = "offline"
+    is_active: bool = True
+
+
+class ClassCenterUpdate(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    map_url: str | None = None
+    mode: str | None = None
+    is_active: bool | None = None
+
+
+class ClassCenterOut(BaseModel):
+    id: str
+    name: str
+    address: str | None
+    map_url: str | None
+    mode: str
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ClassBatchCreate(BaseModel):
+    center_id: str
+    label: str
+    start_date: date | None = None
+    end_date: date | None = None
+    time_slot: str | None = None
+    mode: str = "offline"
+    capacity: int | None = None
+    is_active: bool = True
+
+
+class ClassBatchUpdate(BaseModel):
+    label: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    time_slot: str | None = None
+    mode: str | None = None
+    capacity: int | None = None
+    is_active: bool | None = None
+
+
+class ClassBatchOut(BaseModel):
+    id: str
+    center_id: str
+    label: str
+    start_date: date | None
+    end_date: date | None
+    time_slot: str | None
+    mode: str
+    capacity: int | None
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ClassBatchWithCenterOut(ClassBatchOut):
+    center_name: str
+    center_mode: str
+
+
+# Enrollment assignment on a lead
+class LeadEnrollmentUpdate(BaseModel):
+    class_center_id: str | None = None
+    class_batch_id: str | None = None
+    enrollment_status: EnrollmentStatus | None = None
+
+
+# Share schedule event response
+class ScheduleShareOut(BaseModel):
+    success: bool
+    message: str
+    event_fired: bool
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +255,14 @@ class LeadOut(BaseModel):
     notes: str | None
     conversation_summary: str | None
     extra_data: dict | None = Field(default_factory=dict)
+    # Class enrollment fields
+    class_center_id: str | None = None
+    class_batch_id: str | None = None
+    enrollment_status: str = "none"
+    # Denormalized center/batch names for display (populated via join)
+    class_center_name: str | None = None
+    class_batch_label: str | None = None
+    class_batch_time_slot: str | None = None
     created_at: datetime
     updated_at: datetime
 

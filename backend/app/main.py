@@ -9,7 +9,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api import admin, aisensy, analytics, auth, calls, clients, followups, leads, agents_admin
+from app.api import admin, aisensy, analytics, auth, calls, classes, clients, followups, leads, agents_admin
 from app.api.deps import get_current_agent
 
 # ─── Rate Limiter ─────────────────────────────────────────────────────────────
@@ -70,6 +70,7 @@ _protected = [Depends(get_current_agent)]
 app.include_router(calls.router, dependencies=_protected)
 app.include_router(clients.router, dependencies=_protected)
 app.include_router(followups.router, dependencies=_protected)
+app.include_router(classes.router, dependencies=_protected)
 app.include_router(leads.router)  # has own auth + webhook routes
 app.include_router(aisensy.router)  # has own auth + webhook routes
 app.include_router(analytics.router, dependencies=_protected)

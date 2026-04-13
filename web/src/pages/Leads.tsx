@@ -76,6 +76,8 @@ const SORTABLE_COLS: Record<string, string> = {
   Campaign: "source_campaign",
   Followup: "next_followup_at",
   Updated: "updated_at",
+  Center: "class_center_name",
+  Enrolled: "enrollment_status",
 };
 
 const PAGE_SIZE = 50;
@@ -100,6 +102,16 @@ const FILTER_FIELDS = [
     label: "Interest",
     options: ["high", "medium", "low", "none"] as readonly string[],
   },
+  {
+    key: "enrollment_status",
+    label: "Enrollment",
+    options: ["none", "demo_scheduled", "demo_attended", "enrolled", "dropped"] as readonly string[],
+  },
+  {
+    key: "class_center_name",
+    label: "Center",
+    options: null as null,
+  },
   { key: "source_campaign", label: "Campaign", options: null as null },
   { key: "ad_set", label: "Ad Set", options: null as null },
 ];
@@ -110,6 +122,7 @@ const EXACT_MATCH_FIELDS = new Set([
   "status",
   "intent_category",
   "interest_level",
+  "enrollment_status",
 ]);
 
 // ── URL helpers ──────────────────────────────────────────────────────────────
@@ -478,6 +491,8 @@ export default function Leads() {
       "status",
       "intent_category",
       "interest_level",
+      "enrollment_status",
+      "class_center_name",
       "source_campaign",
       "ad_set",
     ];
@@ -1084,6 +1099,8 @@ export default function Leads() {
                         "Status",
                         "Intent",
                         "Interest",
+                        "Center",
+                        "Enrolled",
                         "Campaign",
                         "Followup",
                         "Updated",
@@ -1168,6 +1185,36 @@ export default function Leads() {
                             className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${INTEREST_COLORS[lead.interest_level] ?? "bg-gray-100 text-gray-600"}`}
                           >
                             {lead.interest_level}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      {/* Center */}
+                      <td className="px-4 py-3">
+                        {lead.class_center_name ? (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap">
+                            {lead.class_center_name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      {/* Enrollment status */}
+                      <td className="px-4 py-3">
+                        {lead.enrollment_status && lead.enrollment_status !== "none" ? (
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              lead.enrollment_status === "enrolled"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : lead.enrollment_status === "demo_attended"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : lead.enrollment_status === "demo_scheduled"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-red-50 text-red-600"
+                            }`}
+                          >
+                            {lead.enrollment_status.replace(/_/g, " ")}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>

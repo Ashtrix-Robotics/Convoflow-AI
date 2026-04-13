@@ -210,6 +210,10 @@ _KNOWN_SETTINGS = {
         "default": "[]",
         "description": "JSON array of custom dropdown field definitions: [{\"name\":\"field_key\",\"label\":\"Display Name\",\"options\":[\"A\",\"B\",\"C\"]}]",
     },
+    "lead_status_options": {
+        "default": "[\"follow up\",\"highly interested\",\"not interested\",\"not fit\",\"registration paid\",\"paid\",\"junk lead\",\"workshop paid\",\"demo attended\",\"future prospect\",\"online class\"]",
+        "description": "JSON array of lead status options available in the status dropdown. Edit to add or remove statuses.",
+    },
 }
 
 

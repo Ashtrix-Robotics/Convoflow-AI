@@ -1,0 +1,46 @@
+# Environment & Dependencies
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build & Output
+dist/
+build/
+.expo/
+android/
+ios/
+web/dist/
+
+# Configuration & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Databases & Storage
+*.db
+*.sqlite
+backend/uploads/
+uploads/tmp/
+
+# Tools & Logs
+.vscode/
+.github/
+.git/
+.cgcignore
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test Results & Artifacts
+tests/screenshots/
+coverage/
+.playwright/
+.pytest_cache/

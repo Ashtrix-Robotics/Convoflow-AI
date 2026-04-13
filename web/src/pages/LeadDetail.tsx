@@ -117,15 +117,18 @@ function normaliseExtraValue(val: string, inputType: InputType): string {
   return val;
 }
 
-const STATUS_OPTIONS = [
-  "new",
-  "contacted",
-  "in_progress",
-  "qualified",
-  "payment_sent",
-  "converted",
-  "lost",
-  "deferred",
+const DEFAULT_STATUS_OPTIONS = [
+  "follow up",
+  "highly interested",
+  "not interested",
+  "not fit",
+  "registration paid",
+  "paid",
+  "junk lead",
+  "workshop paid",
+  "demo attended",
+  "future prospect",
+  "online class",
 ];
 
 const INTENT_OPTIONS_ALL = [
@@ -174,6 +177,28 @@ function EditLeadModal({
   isSaving: boolean;
   customFields: CustomFieldDef[];
 }) {
+  const { data: _settingsForStatus = [] } = useQuery<
+    { key: string; value: string }[]
+  >({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.get("/admin/settings").then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+  const statusOptions = useMemo(() => {
+    const raw = _settingsForStatus.find(
+      (s) => s.key === "lead_status_options",
+    )?.value;
+    if (!raw) return DEFAULT_STATUS_OPTIONS;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0
+        ? parsed
+        : DEFAULT_STATUS_OPTIONS;
+    } catch {
+      return DEFAULT_STATUS_OPTIONS;
+    }
+  }, [_settingsForStatus]);
+
   const [form, setForm] = useState({
     name: lead.name ?? "",
     phone: lead.phone ?? "",
@@ -291,15 +316,18 @@ function EditLeadModal({
 
           {/* Status */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Status</label>
+            <label className="block text-xs text-gray-500 mb-1">Lead Status</label>
             <select
               value={form.status}
               onChange={(e) => f("status", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
             >
-              {STATUS_OPTIONS.map((s) => (
+              {form.status && !statusOptions.includes(form.status) && (
+                <option value={form.status}>{form.status}</option>
+              )}
+              {statusOptions.map((s) => (
                 <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
+                  {s}
                 </option>
               ))}
             </select>
@@ -518,9 +546,30 @@ function EditLeadModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function useLeadStatusOptions(): string[] {
+  const { data: settings = [] } = useQuery<{ key: string; value: string }[]>({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.get("/admin/settings").then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+  return useMemo(() => {
+    const raw = settings.find((s) => s.key === "lead_status_options")?.value;
+    if (!raw) return DEFAULT_STATUS_OPTIONS;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0
+        ? parsed
+        : DEFAULT_STATUS_OPTIONS;
+    } catch {
+      return DEFAULT_STATUS_OPTIONS;
+    }
+  }, [settings]);
+}
+
 export default function LeadDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const statusOptions = useLeadStatusOptions();
   const [notes, setNotes] = useState("");
   const [conversationDraft, setConversationDraft] = useState<string | null>(
     null,
@@ -658,17 +707,26 @@ export default function LeadDetail() {
               >
                 ✏ Edit Lead
               </button>
-              <select
-                value={lead.status}
-                onChange={(e) => updateLead.mutate({ status: e.target.value })}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6600]"
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Lead Status
+                </span>
+                <select
+                  value={lead.status}
+                  onChange={(e) => updateLead.mutate({ status: e.target.value })}
+                  className="border-2 border-[#FF6600] bg-white rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FF6600] focus:ring-offset-1 cursor-pointer min-w-[160px]"
+                >
+                  {/* Keep current value selectable even if not in the list */}
+                  {lead.status && !statusOptions.includes(lead.status) && (
+                    <option value={lead.status}>{lead.status}</option>
+                  )}
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {lead.intent_category && (
                 <span
                   className={`text-xs font-medium px-2.5 py-1 rounded-full ${INTENT_COLORS[lead.intent_category] ?? "bg-gray-100"}`}

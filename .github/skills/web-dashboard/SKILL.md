@@ -348,3 +348,198 @@ function Login() {
 | Primary button  | `bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg`              |
 | Danger button   | `bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg`                |
 | Input field     | `w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none` |
+
+---
+
+## Code Splitting — React.lazy + Suspense
+
+All pages **must** be lazy-loaded. This keeps the initial bundle small (<150KB) and produces separate JS chunks per page.
+
+```tsx
+// App.tsx — correct pattern (lazy imports)
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Login = lazy(() => import("./pages/Login"));
+const Leads = lazy(() => import("./pages/Leads"));
+const CallDetail = lazy(() => import("./pages/CallDetail"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+// ... all other pages
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leads"
+            element={
+              <ProtectedRoute>
+                <Leads />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calls/:id"
+            element={
+              <ProtectedRoute>
+                <CallDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+```
+
+**Do NOT** use regular `import` at the top level for page components — that defeats code splitting. Verify chunks are produced by checking the Vite build output: each `lazy()` target should appear as a separate `.js` file.
+
+---
+
+## QueryClient — staleTime Must Be Explicitly Wired
+
+**Common mistake**: defining `QUERY_STALE_TIME_MS` as a constant but never passing it to `QueryClient`. The constant does nothing until you wire it into `defaultOptions`.
+
+```tsx
+// main.tsx — correct QueryClient setup
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const QUERY_STALE_TIME_MS = 60_000; // 1 minute
+const QUERY_RETRY_COUNT = 1;
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: QUERY_STALE_TIME_MS, // ← must be here or it has no effect
+      retry: QUERY_RETRY_COUNT,
+      refetchOnWindowFocus: false, // prevent re-fetch on tab switch (noisy on Render)
+    },
+  },
+});
+```
+
+Per-query override when a specific query needs a different staleTime:
+
+```tsx
+const { data } = useQuery({
+  queryKey: ["leads", filters],
+  queryFn: () => api.getLeads(filters).then((r) => r.data),
+  staleTime: 60_000, // override here — 1 minute cache for leads
+});
+```
+
+---
+
+## useDeferredValue — Better Search Debounce
+
+Prefer `useDeferredValue` over `setTimeout`-based debounce for search inputs. It uses React's idle scheduling to defer expensive work until the browser is idle.
+
+```tsx
+// pages/Leads.tsx
+import { useState, useDeferredValue } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+export default function Leads() {
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDeferredValue(search); // defers to idle cycle
+
+  const { data: leads } = useQuery({
+    queryKey: ["leads", debouncedSearch], // only fires when deferred value settles
+    queryFn: () =>
+      api.getLeads({ search: debouncedSearch }).then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)} // update immediately for responsiveness
+        placeholder="Search leads..."
+      />
+      {/* render uses debouncedSearch implicitly via query */}
+    </div>
+  );
+}
+```
+
+**Key difference from `setTimeout`**: `useDeferredValue` is concurrent-mode aware — it never fires a stale query after a newer one. `setTimeout` can.
+
+---
+
+## Cold Start Detection (Render Free Tier)
+
+Render free-tier services spin down after 15 minutes. Cold starts take 30–60s. The frontend must not break during this.
+
+```tsx
+// Pattern: detect 502/503 on GET requests and show retry banner
+function useColdStartAwareQuery<T>(
+  queryKey: unknown[],
+  queryFn: () => Promise<T>,
+) {
+  const [serverStarting, setServerStarting] = useState(false);
+
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => {
+      try {
+        setServerStarting(false);
+        return await queryFn();
+      } catch (err: any) {
+        if (
+          err?.response?.status === 502 ||
+          err?.response?.status === 503 ||
+          !err?.response
+        ) {
+          setServerStarting(true);
+          throw err; // let TanStack Query retry
+        }
+        throw err;
+      }
+    },
+    retry: 5,
+    retryDelay: 10_000, // retry every 10 seconds during cold start
+  });
+
+  return { ...query, serverStarting };
+}
+```
+
+**CRITICAL**: Only auto-retry safe (GET/HEAD) requests. **Never** auto-retry POST/PATCH/DELETE — they may have already executed server-side.
+
+After any bulk mutation (purge, import, bulk-update), invalidate **all** related query keys, not just the obvious one:
+
+```tsx
+queryClient.invalidateQueries({ queryKey: ["leads"] });
+queryClient.invalidateQueries({ queryKey: ["analytics"] });
+queryClient.invalidateQueries({ queryKey: ["calls"] });
+```

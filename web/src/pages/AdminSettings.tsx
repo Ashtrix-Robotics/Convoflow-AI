@@ -39,6 +39,129 @@ interface CustomFieldDef {
   options: string[];
 }
 
+const DEFAULT_STATUS_OPTIONS = [
+  "follow up",
+  "highly interested",
+  "not interested",
+  "not fit",
+  "registration paid",
+  "paid",
+  "junk lead",
+  "workshop paid",
+  "demo attended",
+  "future prospect",
+  "online class",
+];
+
+function StatusOptionsEditor({
+  settings,
+  onSave,
+  isSaving,
+}: {
+  settings: Setting[];
+  onSave: (value: string) => void;
+  isSaving: boolean;
+}) {
+  const raw =
+    settings.find((s) => s.key === "lead_status_options")?.value ??
+    JSON.stringify(DEFAULT_STATUS_OPTIONS);
+  const [options, setOptions] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : DEFAULT_STATUS_OPTIONS;
+    } catch {
+      return DEFAULT_STATUS_OPTIONS;
+    }
+  });
+  const [newOption, setNewOption] = useState("");
+
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setOptions(parsed);
+    } catch {
+      /* keep current */
+    }
+  }, [raw]);
+
+  const handleAdd = () => {
+    const trimmed = newOption.trim().toLowerCase();
+    if (!trimmed || options.includes(trimmed)) return;
+    const next = [...options, trimmed];
+    setOptions(next);
+    onSave(JSON.stringify(next));
+    setNewOption("");
+  };
+
+  const handleRemove = (opt: string) => {
+    const next = options.filter((o) => o !== opt);
+    setOptions(next);
+    onSave(JSON.stringify(next));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5 border border-orange-200">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xl">🏷️</span>
+        <h3 className="font-bold text-gray-800 text-lg">Lead Status Options</h3>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Manage the list of statuses available in the lead status dropdown. Changes apply immediately across all lead pages.
+      </p>
+
+      <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
+        {options.map((opt) => (
+          <span
+            key={opt}
+            className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-800 text-sm font-medium px-3 py-1 rounded-full"
+          >
+            {opt}
+            <button
+              onClick={() => handleRemove(opt)}
+              className="text-orange-400 hover:text-red-500 leading-none text-base ml-0.5 transition"
+              title={`Remove "${opt}"`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {options.length === 0 && (
+          <p className="text-sm text-gray-400 italic">
+            No status options defined. Add one below.
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          value={newOption}
+          onChange={(e) => setNewOption(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Add new status (e.g. interested)"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF6600] focus:outline-none"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={isSaving || !newOption.trim()}
+          className="bg-[#FF6600] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 disabled:opacity-50 transition"
+        >
+          {isSaving ? "Saving…" : "Add"}
+        </button>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">
+        Press Enter or click Add. Status values are case-insensitive.
+      </p>
+    </div>
+  );
+}
+
 function CustomFieldsEditor({
   settings,
   onSave,
@@ -505,6 +628,17 @@ export default function AdminSettings() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Lead Status Options */}
+        {!isLoading && (
+          <StatusOptionsEditor
+            settings={settings}
+            onSave={(value) =>
+              updateMutation.mutate({ key: "lead_status_options", value })
+            }
+            isSaving={updateMutation.isPending}
+          />
         )}
 
         {/* Custom Dropdown Fields */}

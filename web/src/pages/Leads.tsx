@@ -22,13 +22,18 @@ const PIPELINE_COLUMNS = [
   { key: "lost", label: "Lost", color: "bg-red-500" },
 ] as const;
 
-const LEAD_STATUSES = [
-  "new",
-  "contacted",
-  "qualified",
-  "payment_sent",
-  "converted",
-  "lost",
+const DEFAULT_LEAD_STATUSES = [
+  "follow up",
+  "highly interested",
+  "not interested",
+  "not fit",
+  "registration paid",
+  "paid",
+  "junk lead",
+  "workshop paid",
+  "demo attended",
+  "future prospect",
+  "online class",
 ];
 const INTENT_CATEGORIES = [
   "new",
@@ -83,7 +88,7 @@ const FILTER_FIELDS = [
   {
     key: "status",
     label: "Status",
-    options: LEAD_STATUSES as readonly string[],
+    options: DEFAULT_LEAD_STATUSES as readonly string[],
   },
   {
     key: "intent_category",
@@ -374,6 +379,23 @@ export default function Leads() {
         .then((r) => r.data)
         .catch(() => []),
   });
+
+  const { data: adminSettings = [] } = useQuery<{ key: string; value: string }[]>({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.get("/admin/settings").then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+
+  const leadStatusOptions = useMemo(() => {
+    const raw = adminSettings.find((s) => s.key === "lead_status_options")?.value;
+    if (!raw) return DEFAULT_LEAD_STATUSES;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_LEAD_STATUSES;
+    } catch {
+      return DEFAULT_LEAD_STATUSES;
+    }
+  }, [adminSettings]);
 
   const bulkMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -814,13 +836,13 @@ export default function Leads() {
                   <option value="" className="bg-[#001838] text-white">
                     Select status…
                   </option>
-                  {LEAD_STATUSES.map((s) => (
+                  {leadStatusOptions.map((s) => (
                     <option
                       key={s}
                       value={s}
                       className="bg-[#001838] text-white capitalize"
                     >
-                      {s.replace(/_/g, " ")}
+                      {s}
                     </option>
                   ))}
                 </select>

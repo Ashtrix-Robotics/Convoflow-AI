@@ -77,14 +77,17 @@ export const INTENT_LABELS: Record<IntentCategory, string> = {
 };
 
 export const LEAD_STATUSES = [
-  "new",
-  "contacted",
-  "in_progress",
-  "qualified",
-  "payment_sent",
-  "converted",
-  "lost",
-  "deferred",
+  "follow up",
+  "highly interested",
+  "not interested",
+  "not fit",
+  "registration paid",
+  "paid",
+  "junk lead",
+  "workshop paid",
+  "demo attended",
+  "future prospect",
+  "online class",
 ] as const;
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];

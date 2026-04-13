@@ -257,3 +257,96 @@ mcp_microsoft_pla_browser_fill_form(ref, formData)      → fill multiple fields
 | Real-time verification + immediate bug fix         | Headless automation for regression                     | CI/CD test suites                        |
 | No files produced                                  | `.py` test files written                               | `.spec.ts` files written                 |
 | Best for: post-deploy verification, exploratory QA | Best for: regression automation                        | Best for: CI pipelines                   |
+
+---
+
+## Authentication — Third-Party Auth Providers (Supabase, Clerk, Auth0)
+
+When the app uses a third-party auth provider, `signInWithPassword()` (or its equivalent) **will time out** in automated browser environments. The provider's auth servers block or throttle headless sessions.
+
+### JWT Injection Pattern
+
+Instead of completing the auth flow through the browser UI:
+
+1. Get the platform JWT directly via the backend's own login endpoint
+2. Inject it into `localStorage` programmatically
+3. Navigate to the protected route — the app reads from `localStorage` and treats the session as authenticated
+
+```python
+# Step 1: Get JWT via direct API call (Python urllib — no Playwright needed)
+import urllib.request, urllib.parse, json
+
+data = urllib.parse.urlencode({"username": "agent@example.com", "password": "password"}).encode()
+req = urllib.request.Request("https://your-api.onrender.com/auth/login", data=data)
+resp = json.loads(urllib.request.urlopen(req, timeout=30).read())
+token = resp["access_token"]
+
+# Step 2: Inject via Playwright evaluate (MCP equivalent)
+mcp_microsoft_pla_browser_evaluate(
+    script=f"localStorage.setItem('access_token', '{token}')"
+)
+
+# Step 3: Navigate to the protected route
+mcp_microsoft_pla_browser_navigate(url="https://your-app.vercel.app/dashboard")
+
+# Step 4: Snapshot to confirm we landed on the authenticated page
+mcp_microsoft_pla_browser_snapshot()
+```
+
+**When this is needed**:
+
+- Supabase `signInWithPassword()` → auth provider unreachable in automated environment
+- Clerk `signIn()` → CAPTCHA or bot detection
+- Any OAuth flow → redirect loops in headless mode
+
+**Key rule**: Always get a **fresh** token at the start of each test session. Never reuse a token from a previous run — they expire.
+
+---
+
+## API Benchmarking via Python urllib
+
+For performance verification (response times, payload sizes), use `urllib.request` directly — no need for Playwright. This tests the backend independently of the frontend.
+
+```python
+import urllib.request, json, time
+
+API = "https://your-api.onrender.com"
+TOKEN = "..."  # get via /auth/login first
+
+def bench(path, label):
+    req = urllib.request.Request(f"{API}{path}", headers={"Authorization": f"Bearer {TOKEN}"})
+    t0 = time.time()
+    resp = urllib.request.urlopen(req, timeout=30)
+    body = resp.read()
+    elapsed = (time.time() - t0) * 1000
+    data = json.loads(body)
+    count = len(data) if isinstance(data, list) else "object"
+    print(f"{label}: {elapsed:.0f}ms — {count} items — {len(body)/1024:.1f}KB")
+    print(f"  Encoding: {resp.headers.get('Content-Encoding', 'none')}")
+
+bench("/analytics", "Analytics")
+bench("/leads?page=1&limit=50", "Leads (page 1, 50 items)")
+```
+
+Use this pattern to confirm:
+
+- GZip compression is active (`Content-Encoding: gzip`)
+- Response times meet targets (<2s warm for analytics, <500ms for simple GETs)
+- Payload size is reasonable (GZip should cut JSON by 70–80%)
+
+---
+
+## Deployment Confirmation via Behavioral Testing
+
+A health check returning `{"status": "ok"}` only proves the server started. To confirm all recent changes are **actually deployed**, test the specific behavior that was changed:
+
+| Change deployed          | Behavioral proof                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| New API field added      | Call the endpoint, check the field is present in the response                               |
+| SQL aggregation refactor | Benchmark analytics endpoint — confirm response time improved                               |
+| GZip middleware added    | Check `Content-Encoding: gzip` in response headers                                          |
+| Alembic migration ran    | If `alembic upgrade head && uvicorn` start command succeeded → API up = migration succeeded |
+| Code split (React.lazy)  | Check browser DevTools Network — each route loads a new `.js` chunk                         |
+| QueryClient staleTime    | Navigate between pages — confirm repeat GETs are suppressed in Network tab                  |
+
+**Alembic shortcut**: On Render with start command `alembic upgrade head && uvicorn app.main:app ...` — if the API responds at all, the migration chain completed successfully. No separate migration log check needed.

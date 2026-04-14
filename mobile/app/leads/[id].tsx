@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,17 +8,57 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Contacts from "expo-contacts";
+import * as SecureStore from "expo-secure-store";
 import { getLead, getCalls, markNoAnswer } from "../../services/api";
 import { AudioPlayerButton } from "../../components/AudioPlayerButton";
+
+// ── Contact Name Templates ──────────────────────────────────────────────────
+const TEMPLATE_STORAGE_KEY = "contact_name_template";
+const DEFAULT_TEMPLATE = "{name}";
+
+const PRESET_TEMPLATES = [
+  { label: "Name only", value: "{name}" },
+  { label: "Name - Center", value: "{name} - {center}" },
+  { label: "Name_Center_Batch", value: "{name}_{center}_{batch}" },
+  { label: "Name_Center_Course", value: "{name}_{center}_{course}" },
+  { label: "Name_Campaign", value: "{name}_{campaign}" },
+];
+
+function applyTemplate(template: string, lead: any): string {
+  return template
+    .replace(/\{name\}/gi, lead.name || "")
+    .replace(/\{center\}/gi, lead.class_center_name || "")
+    .replace(/\{batch\}/gi, lead.class_batch_label || "")
+    .replace(/\{course\}/gi, lead.course_interested_in || "")
+    .replace(/\{campaign\}/gi, lead.source_campaign || "")
+    .replace(/\{phone\}/gi, lead.phone || "")
+    .trim();
+}
 
 export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [customTemplate, setCustomTemplate] = useState("");
+  const [savedTemplate, setSavedTemplate] = useState(DEFAULT_TEMPLATE);
+
+  // Load saved template on mount
+  useEffect(() => {
+    SecureStore.getItemAsync(TEMPLATE_STORAGE_KEY).then((t) => {
+      if (t) {
+        setSavedTemplate(t);
+        setCustomTemplate(t);
+      }
+    });
+  }, []);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
@@ -58,9 +98,20 @@ export default function LeadDetailScreen() {
     Linking.openURL(`https://wa.me/${digits}`);
   };
 
-  const handleSaveContact = async () => {
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status !== "granted") {
+  const handleSaveContact = () => {
+    setCustomTemplate(savedTemplate);
+    setShowTemplatePicker(true);
+  };
+
+  const doSaveContact = async (template: string) => {
+    setShowTemplatePicker(false);
+
+    // Persist template choice for next time
+    await SecureStore.setItemAsync(TEMPLATE_STORAGE_KEY, template);
+    setSavedTemplate(template);
+
+    const { status: permStatus } = await Contacts.requestPermissionsAsync();
+    if (permStatus !== "granted") {
       Alert.alert(
         "Permission Denied",
         "Convoflow AI needs access to your contacts to save this lead.",
@@ -68,23 +119,28 @@ export default function LeadDetailScreen() {
       return;
     }
     try {
-      const nameParts = lead.name.trim().split(" ");
-      const contact: Contacts.Contact = {
+      const displayName = applyTemplate(template, lead);
+      const nameParts = displayName.trim().split(" ");
+      const firstName = nameParts[0] || lead.name;
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+      const contact: Record<string, any> = {
         contactType: Contacts.ContactTypes.Person,
-        firstName: nameParts[0],
-        lastName: nameParts.slice(1).join(" ") || undefined,
-        phoneNumbers: [{ label: "mobile", number: lead.phone }],
-        emails: lead.email
-          ? [{ label: "work", email: lead.email }]
-          : undefined,
-        note: lead.course_interested_in
-          ? `Course: ${lead.course_interested_in}`
-          : undefined,
+        name: displayName,
+        firstName,
+        phoneNumbers: [{ label: "mobile", number: lead.phone, isPrimary: true }],
       };
-      await Contacts.addContactAsync(contact);
-      Alert.alert("Saved!", `${lead.name} has been saved to your contacts.`);
-    } catch {
-      Alert.alert("Error", "Could not save contact. Please try again.");
+      if (lastName) contact.lastName = lastName;
+      if (lead.email) contact.emails = [{ label: "work", email: lead.email }];
+
+      await Contacts.addContactAsync(contact as Contacts.Contact);
+      Alert.alert("Saved!", `"${displayName}" has been saved to your contacts.`);
+    } catch (err: any) {
+      console.error("Save contact error:", err);
+      Alert.alert(
+        "Error",
+        `Could not save contact: ${err?.message || "Unknown error"}. Please try again.`,
+      );
     }
   };
 
@@ -215,7 +271,7 @@ export default function LeadDetailScreen() {
             </View>
             {call.audio_url ? (
               <View style={styles.audioRow}>
-                <AudioPlayerButton audioUrl={call.audio_url} />
+                <AudioPlayerButton callId={call.id} />
               </View>
             ) : null}
             {call.summary ? (
@@ -234,6 +290,70 @@ export default function LeadDetailScreen() {
           </View>
         ))}
       </View>
+
+      {/* Contact Name Template Picker */}
+      <Modal
+        visible={showTemplatePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTemplatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Contact Name Format</Text>
+            <Text style={styles.modalSubtitle}>
+              Preview: <Text style={{ fontWeight: "700" }}>{applyTemplate(customTemplate || DEFAULT_TEMPLATE, lead)}</Text>
+            </Text>
+            <Text style={styles.modalHint}>
+              Variables: {"{name}"} {"{center}"} {"{batch}"} {"{course}"} {"{campaign}"} {"{phone}"}
+            </Text>
+
+            {PRESET_TEMPLATES.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                style={[
+                  styles.templateOption,
+                  customTemplate === t.value && styles.templateOptionActive,
+                ]}
+                onPress={() => setCustomTemplate(t.value)}
+              >
+                <Text style={[
+                  styles.templateLabel,
+                  customTemplate === t.value && styles.templateLabelActive,
+                ]}>
+                  {t.label}
+                </Text>
+                <Text style={styles.templatePreview}>
+                  {applyTemplate(t.value, lead)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TextInput
+              style={styles.templateInput}
+              value={customTemplate}
+              onChangeText={setCustomTemplate}
+              placeholder="Custom: e.g. {name}_{center}_{batch}_Ashtrix"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => setShowTemplatePicker(false)}
+              >
+                <Text style={{ color: "#6B7280", fontWeight: "600" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSave}
+                onPress={() => doSaveContact(customTemplate || DEFAULT_TEMPLATE)}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Save Contact</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -357,5 +477,87 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 4,
     textTransform: "capitalize",
+  },
+  // ── Template Picker Modal ──────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#002147",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#4B5563",
+    marginBottom: 4,
+  },
+  modalHint: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginBottom: 14,
+  },
+  templateOption: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 8,
+  },
+  templateOptionActive: {
+    borderColor: "#6366F1",
+    backgroundColor: "#EEF2FF",
+  },
+  templateLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  templateLabelActive: {
+    color: "#4338CA",
+  },
+  templatePreview: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+  templateInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#111827",
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalCancel: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+  },
+  modalSave: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: "#6366F1",
+    alignItems: "center",
   },
 });

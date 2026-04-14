@@ -81,7 +81,7 @@ def _upload_to_supabase(file_bytes: bytes, filename: str) -> dict:
     client.storage.from_(settings.supabase_bucket).upload(
         path=storage_path,
         file=file_bytes,
-        file_options={"content-type": "audio/m4a", "upsert": "false"},
+        file_options={"content-type": "audio/mp4", "upsert": "false"},
     )
     audio_url = (
         f"{settings.supabase_url}/storage/v1/object/public/"
@@ -89,3 +89,18 @@ def _upload_to_supabase(file_bytes: bytes, filename: str) -> dict:
     )
     logger.info("Uploaded to Supabase Storage: %s", storage_path)
     return {"storage_path": storage_path, "audio_url": audio_url, "backend": "supabase"}
+
+
+def download_audio(storage_path: str) -> bytes:
+    """Download audio bytes from Supabase Storage using the service key."""
+    client = _get_supabase()
+    return client.storage.from_(settings.supabase_bucket).download(storage_path)
+
+
+def extract_storage_path(audio_url: str) -> str | None:
+    """Extract the storage path from a public Supabase URL."""
+    marker = f"/{settings.supabase_bucket}/"
+    idx = audio_url.find(marker)
+    if idx == -1:
+        return None
+    return audio_url[idx + len(marker):]

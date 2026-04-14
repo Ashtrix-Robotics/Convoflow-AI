@@ -4,15 +4,17 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, File, Form, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import create_db_session, get_db
 from app.core.config import settings
+from app.core.security import decode_token
 from app.models.models import CallRecord, Agent, Lead
 from app.schemas.schemas import CallLeadLinkIn, CallRecordOut
 from app.services.transcription import extract_edutech_insights, transcribe_audio
-from app.services.storage import upload_audio, get_local_temp_path, delete_audio
+from app.services.storage import upload_audio, get_local_temp_path, delete_audio, download_audio, extract_storage_path
 from app.services.pabbly import (
     fire_call_analyzed,
     fire_lead_interested,
@@ -110,6 +112,79 @@ def get_call(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
     return call
+
+
+@router.get("/{call_id}/audio")
+def stream_call_audio(
+    call_id: str,
+    request: Request,
+    token: str | None = Query(None, description="JWT token (for native audio players)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Stream the call audio file via the backend (proxied from Supabase Storage).
+    Accepts auth via Authorization header (web) or ?token= query param (mobile).
+    """
+    # Resolve JWT from header or query param
+    jwt_token = token
+    if not jwt_token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            jwt_token = auth_header[7:]
+    if not jwt_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+    payload = decode_token(jwt_token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    agent = db.query(Agent).filter(Agent.id == payload.get("sub")).first()
+    if not agent or not agent.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Agent not found")
+
+    call = db.query(CallRecord).filter(
+        CallRecord.id == call_id, CallRecord.agent_id == agent.id
+    ).first()
+    if not call:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
+
+    # Determine the storage path
+    storage_path = call.audio_file_path
+    if not storage_path and call.audio_url:
+        storage_path = extract_storage_path(call.audio_url)
+    if not storage_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No audio file available")
+
+    try:
+        audio_bytes = download_audio(storage_path)
+    except Exception as exc:
+        logger.error("Failed to download audio %s: %s", storage_path, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not retrieve audio file from storage",
+        )
+
+    # Determine content type from file extension
+    ext = storage_path.rsplit(".", 1)[-1].lower() if "." in storage_path else "m4a"
+    content_types = {
+        "m4a": "audio/mp4",
+        "mp4": "audio/mp4",
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+        "webm": "audio/webm",
+        "aac": "audio/aac",
+    }
+    media_type = content_types.get(ext, "audio/mp4")
+
+    return Response(
+        content=audio_bytes,
+        media_type=media_type,
+        headers={
+            "Content-Length": str(len(audio_bytes)),
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
 
 
 @router.patch("/{call_id}/lead", response_model=CallRecordOut)

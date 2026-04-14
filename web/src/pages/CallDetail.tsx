@@ -29,10 +29,32 @@ export default function CallDetail() {
       api.get("/leads", { params: { limit: 100 } }).then((r) => r.data),
   });
   const [selectedLeadId, setSelectedLeadId] = useState("");
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedLeadId(call?.lead_id ?? "");
   }, [call?.lead_id]);
+
+  // Fetch audio via backend proxy (avoids direct Supabase access issues)
+  useEffect(() => {
+    if (!call?.audio_url || !call?.id) return;
+    let revoked = false;
+    api
+      .get(`/calls/${call.id}/audio`, { responseType: "blob" })
+      .then((r) => {
+        if (!revoked) {
+          setAudioBlobUrl(URL.createObjectURL(r.data));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      revoked = true;
+      setAudioBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [call?.id, call?.audio_url]);
 
   const linkLead = useMutation({
     mutationFn: (leadId: string | null) =>
@@ -152,13 +174,13 @@ export default function CallDetail() {
         )}
 
         {/* Audio Playback */}
-        {call.audio_url && (
+        {audioBlobUrl && (
           <div className="bg-white rounded-xl shadow-sm p-5">
             <h2 className="font-semibold text-gray-700 mb-3">Call Recording</h2>
             <audio
               controls
               className="w-full"
-              src={call.audio_url}
+              src={audioBlobUrl}
               preload="metadata"
             >
               Your browser does not support the audio element.

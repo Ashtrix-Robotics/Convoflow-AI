@@ -66,7 +66,7 @@ export default function HistoryScreen() {
         )}
         {item.audio_url ? (
           <View style={styles.audioRow}>
-            <AudioPlayerButton audioUrl={item.audio_url} />
+            <AudioPlayerButton callId={item.id} hasAudio={!!item.audio_url} />
           </View>
         ) : null}
       </View>

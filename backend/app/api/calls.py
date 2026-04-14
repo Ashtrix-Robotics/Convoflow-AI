@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calls", tags=["calls"])
 
+# Separate router for audio streaming — uses its own auth (header or query param)
+# so it can bypass the router-level OAuth2PasswordBearer dependency.
+audio_router = APIRouter(prefix="/calls", tags=["calls"])
+
 
 @router.post("/upload", response_model=CallRecordOut, status_code=status.HTTP_202_ACCEPTED)
 async def upload_call(
@@ -114,7 +118,7 @@ def get_call(
     return call
 
 
-@router.get("/{call_id}/audio")
+@audio_router.get("/{call_id}/audio")
 def stream_call_audio(
     call_id: str,
     request: Request,

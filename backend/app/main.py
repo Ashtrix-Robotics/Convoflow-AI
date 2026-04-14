@@ -69,6 +69,7 @@ app.include_router(auth.router)
 # ─── Protected routes (all require JWT auth) ─────────────────────────────────
 _protected = [Depends(get_current_agent)]
 app.include_router(calls.router, dependencies=_protected)
+app.include_router(calls.audio_router)  # audio streaming — has its own auth (header or query param)
 app.include_router(clients.router, dependencies=_protected)
 app.include_router(followups.router, dependencies=_protected)
 app.include_router(classes.router, dependencies=_protected)

@@ -151,6 +151,21 @@ export default function CallDetail() {
           </div>
         )}
 
+        {/* Audio Playback */}
+        {call.audio_url && (
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="font-semibold text-gray-700 mb-3">Call Recording</h2>
+            <audio
+              controls
+              className="w-full"
+              src={call.audio_url}
+              preload="metadata"
+            >
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        )}
+
         {/* Action Items */}
         {actionItems.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-5">

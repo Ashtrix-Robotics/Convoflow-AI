@@ -22,10 +22,14 @@ import {
   ScrollView,
   Switch,
 } from "react-native";
+import Constants from "expo-constants";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRecording } from "../../hooks/useRecording";
 import { getMyLeads, linkCallToLead } from "../../services/api";
+
+// Auto-detect requires a native build — not available in Expo Go
+const IS_EXPO_GO = Constants.executionEnvironment === "storeClient";
 
 export default function RecordScreen() {
   const { leadId } = useLocalSearchParams<{ leadId?: string }>();
@@ -99,6 +103,7 @@ export default function RecordScreen() {
   };
 
   const toggleAutoMode = (value: boolean) => {
+    if (IS_EXPO_GO) return; // not available — switch is disabled
     if (value) {
       enableAutoMode();
     } else {
@@ -194,18 +199,24 @@ export default function RecordScreen() {
       <View style={styles.modeRow}>
         <View style={styles.modeTextGroup}>
           <Text style={styles.modeLabel}>Auto-Detect Mode</Text>
-          <Text style={styles.modeSubLabel}>
-            {isAutoMode
-              ? "Recording starts automatically when you make a call"
-              : "Tap Start to begin recording manually"}
-          </Text>
+          {IS_EXPO_GO ? (
+            <Text style={[styles.modeSubLabel, { color: "#EF4444" }]}>
+              Not available in Expo Go — requires a native APK build
+            </Text>
+          ) : (
+            <Text style={styles.modeSubLabel}>
+              {isAutoMode
+                ? "Recording starts automatically when you make a call"
+                : "Tap Start to begin recording manually"}
+            </Text>
+          )}
         </View>
         <Switch
-          value={isAutoMode}
+          value={isAutoMode && !IS_EXPO_GO}
           onValueChange={toggleAutoMode}
           trackColor={{ false: "#D1D5DB", true: "#FF6600" }}
-          thumbColor={isAutoMode ? "#fff" : "#9CA3AF"}
-          disabled={phase === "recording" || phase === "uploading"}
+          thumbColor={isAutoMode && !IS_EXPO_GO ? "#fff" : "#9CA3AF"}
+          disabled={IS_EXPO_GO || phase === "recording" || phase === "uploading"}
         />
       </View>
 

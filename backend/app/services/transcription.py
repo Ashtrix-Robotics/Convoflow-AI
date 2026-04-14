@@ -88,9 +88,13 @@ async def transcribe_audio(audio_file_path: str, lead_context: dict | None = Non
             file=f,
             response_format="text",
             prompt=(
-                "This is a sales call in English or Tamil between a sales agent "
-                "and a prospective student or parent about summer camp and "
-                "online/offline classes at an educational institution."
+                "This is a sales call between a sales agent and a prospective student "
+                "or parent about summer camp, online classes, or offline classes at an "
+                "educational institution called Ashtrix. The speakers may switch between "
+                "English and Tamil (code-switching). Common terms: admission, fees, "
+                "batch, demo class, callback, WhatsApp, interested, fee structure, "
+                "discount, scholarship, online, offline, timing, schedule. "
+                "Transcribe all speech accurately, preserving both English and Tamil words."
             ),
         )
     raw_text = str(transcription_resp)

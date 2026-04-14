@@ -38,11 +38,19 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Convoflow AI to save lead contacts to your phone."
+        }
+      ],
       [
         "expo-audio",
         {

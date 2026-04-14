@@ -346,6 +346,7 @@ class CallRecordOut(BaseModel):
     intent_confidence: float | None
     sentiment: str | None
     call_tag: str | None
+    audio_url: str | None
     pabbly_sent: bool
     recorded_at: datetime
     created_at: datetime

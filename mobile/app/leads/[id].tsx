@@ -11,7 +11,9 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Contacts from "expo-contacts";
 import { getLead, getCalls, markNoAnswer } from "../../services/api";
+import { AudioPlayerButton } from "../../components/AudioPlayerButton";
 
 export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +50,42 @@ export default function LeadDetailScreen() {
 
   const handleCall = () => {
     Linking.openURL(`tel:${lead.phone}`);
+  };
+
+  const handleWhatsApp = () => {
+    // Strip all non-digit chars, ensure it starts with country code
+    const digits = lead.phone.replace(/\D/g, "");
+    Linking.openURL(`https://wa.me/${digits}`);
+  };
+
+  const handleSaveContact = async () => {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Convoflow AI needs access to your contacts to save this lead.",
+      );
+      return;
+    }
+    try {
+      const nameParts = lead.name.trim().split(" ");
+      const contact: Contacts.Contact = {
+        contactType: Contacts.ContactTypes.Person,
+        firstName: nameParts[0],
+        lastName: nameParts.slice(1).join(" ") || undefined,
+        phoneNumbers: [{ label: "mobile", number: lead.phone }],
+        emails: lead.email
+          ? [{ label: "work", email: lead.email }]
+          : undefined,
+        note: lead.course_interested_in
+          ? `Course: ${lead.course_interested_in}`
+          : undefined,
+      };
+      await Contacts.addContactAsync(contact);
+      Alert.alert("Saved!", `${lead.name} has been saved to your contacts.`);
+    } catch {
+      Alert.alert("Error", "Could not save contact. Please try again.");
+    }
   };
 
   const handleRecord = () => {
@@ -106,7 +144,7 @@ export default function LeadDetailScreen() {
         )}
       </View>
 
-      {/* Quick Actions */}
+      {/* Quick Actions Row 1 */}
       <View style={styles.actions}>
         <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
           <Text style={styles.actionText}>📞 Call Now</Text>
@@ -116,6 +154,16 @@ export default function LeadDetailScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.noAnswerBtn} onPress={handleNoAnswer}>
           <Text style={styles.actionText}>📵 No Answer</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Actions Row 2 */}
+      <View style={styles.actionsRow2}>
+        <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsApp}>
+          <Text style={styles.actionText}>💬 WhatsApp</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.saveContactBtn} onPress={handleSaveContact}>
+          <Text style={styles.actionText}>💾 Save Contact</Text>
         </TouchableOpacity>
       </View>
 
@@ -131,52 +179,61 @@ export default function LeadDetailScreen() {
           </Text>
         )}
         <Text style={styles.detail}>Follow-ups: {lead.followup_count}</Text>
-        {lead.notes && <Text style={styles.detail}>Notes: {lead.notes}</Text>}
+        {lead.notes ? <Text style={styles.detail}>Notes: {lead.notes}</Text> : null}
       </View>
 
-        {lead.extra_data && Object.keys(lead.extra_data).length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Campaign Context</Text>
-            {Object.entries(lead.extra_data).map(([key, val]) => (
-              <Text key={key} style={styles.detail}>
-                <Text style={{ fontWeight: "600" }}>{key}:</Text> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
-              </Text>
-            ))}
-          </View>
-        )}
+      {lead.extra_data && Object.keys(lead.extra_data).length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Call History</Text>
-          {calls.map((call: any) => (
-            <View key={call.id} style={styles.callCard}>
-              <View style={styles.callHeader}>
-                <Text style={styles.callDate}>
-                  {new Date(call.created_at).toLocaleDateString()}
-                </Text>
-                <Text style={styles.callTag}>
-                  {call.call_tag === "no_answer"
-                    ? "📵 No Answer"
-                    : call.call_tag === "wrong_number"
-                      ? "❌ Wrong Number"
-                      : "✅ Connected"}
-                </Text>
-              </View>
-              {call.summary && (
-                <Text style={styles.callSummary} numberOfLines={3}>
-                  {call.summary}
-                </Text>
-              )}
-              {call.intent_category && (
-                <Text style={styles.callIntent}>
-                  Intent: {call.intent_category.replace(/_/g, " ")}
-                  {call.intent_confidence
-                    ? ` (${Math.round(call.intent_confidence * 100)}%)`
-                    : ""}
-                </Text>
-              )}
-            </View>
+          <Text style={styles.sectionTitle}>Campaign Context</Text>
+          {Object.entries(lead.extra_data).map(([key, val]) => (
+            <Text key={key} style={styles.detail}>
+              <Text style={{ fontWeight: "600" }}>{key}:</Text>{" "}
+              {typeof val === "object" ? JSON.stringify(val) : String(val)}
+            </Text>
           ))}
         </View>
-      )}
+      ) : null}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Call History</Text>
+        {calls.length === 0 ? (
+          <Text style={styles.detail}>No calls recorded yet.</Text>
+        ) : null}
+        {calls.map((call: any) => (
+          <View key={call.id} style={styles.callCard}>
+            <View style={styles.callHeader}>
+              <Text style={styles.callDate}>
+                {new Date(call.created_at).toLocaleDateString()}
+              </Text>
+              <Text style={styles.callTag}>
+                {call.call_tag === "no_answer"
+                  ? "📵 No Answer"
+                  : call.call_tag === "wrong_number"
+                    ? "❌ Wrong Number"
+                    : "✅ Connected"}
+              </Text>
+            </View>
+            {call.audio_url ? (
+              <View style={styles.audioRow}>
+                <AudioPlayerButton audioUrl={call.audio_url} />
+              </View>
+            ) : null}
+            {call.summary ? (
+              <Text style={styles.callSummary} numberOfLines={3}>
+                {call.summary}
+              </Text>
+            ) : null}
+            {call.intent_category ? (
+              <Text style={styles.callIntent}>
+                Intent: {call.intent_category.replace(/_/g, " ")}
+                {call.intent_confidence
+                  ? ` (${Math.round(call.intent_confidence * 100)}%)`
+                  : ""}
+              </Text>
+            ) : null}
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -218,6 +275,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  actionsRow2: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
     paddingBottom: 16,
   },
   callBtn: {
@@ -240,6 +303,23 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 14,
     alignItems: "center",
+  },
+  whatsappBtn: {
+    flex: 1,
+    backgroundColor: "#25D366",
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+  },
+  saveContactBtn: {
+    flex: 1,
+    backgroundColor: "#6366F1",
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+  },
+  audioRow: {
+    marginTop: 8,
   },
   actionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   section: {

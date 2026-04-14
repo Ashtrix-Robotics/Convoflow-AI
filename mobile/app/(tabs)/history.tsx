@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { getCalls } from "../../services/api";
 import { formatDistanceToNow } from "date-fns";
+import { AudioPlayerButton } from "../../components/AudioPlayerButton";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   completed: { bg: "#D1FAE5", text: "#065F46" },
@@ -63,6 +64,11 @@ export default function HistoryScreen() {
             {item.duration_seconds % 60}s
           </Text>
         )}
+        {item.audio_url ? (
+          <View style={styles.audioRow}>
+            <AudioPlayerButton audioUrl={item.audio_url} />
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -119,6 +125,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   duration: { fontSize: 11, color: "#9CA3AF", marginTop: 4 },
+  audioRow: { marginTop: 10 },
   empty: { alignItems: "center", paddingTop: 80 },
   emptyText: { fontSize: 16, color: "#6B7280" },
 });

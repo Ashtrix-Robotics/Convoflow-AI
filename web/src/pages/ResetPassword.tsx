@@ -92,41 +92,37 @@ export default function ResetPassword() {
         throw new Error("Session expired. Please request a new reset link.");
       }
 
-      // 2. Sync the new password to the platform DB so mobile login also works.
-      //    These calls are non-fatal and have a short timeout to avoid hanging
-      //    if the backend is still waking up (Render free tier).
-      const { data: session } = await supabase.auth.getSession();
-      if (session.session?.access_token) {
-        try {
-          await api.post(
-            "/auth/reset-platform-password",
-            {
-              supabase_token: session.session.access_token,
-              new_password: newPwd,
-            },
-            { timeout: 8000 },
-          );
-        } catch {
-          // Non-fatal — web login is fixed; mobile may need manual reset.
-          console.warn("Platform password sync failed — continuing.");
-        }
-      }
-
-      // 3. Exchange the new Supabase session for a platform JWT and log in.
-      if (session.session?.access_token) {
-        try {
-          const res = await api.post(
-            "/auth/supabase-session",
-            { supabase_token: session.session.access_token },
-            { timeout: 8000 },
-          );
-          localStorage.setItem(TOKEN_KEY, res.data.access_token);
-        } catch {
-          // Could not get platform JWT; user will need to log in manually.
-        }
-      }
-
+      // 2. Password update in Supabase succeeded — show success immediately.
+      //    The backend calls below are non-fatal convenience steps (platform
+      //    password sync + JWT exchange). We fire them in the background so a
+      //    sleeping Render server doesn't make the user wait 16 extra seconds.
       setPageState("success");
+
+      // 3. Background: sync to platform DB + get a platform JWT so the user
+      //    lands on the dashboard without having to log in again.
+      //    If the backend is sleeping these will still time out, but the user
+      //    is already on the success screen and will just need to log in once.
+      supabase.auth.getSession().then(({ data: session }) => {
+        if (!session.session?.access_token) return;
+        const token = session.session.access_token;
+
+        // Fire both requests in parallel, 8 s timeout each, swallow all errors.
+        Promise.allSettled([
+          api.post(
+            "/auth/reset-platform-password",
+            { supabase_token: token, new_password: newPwd },
+            { timeout: 8000 },
+          ),
+          api
+            .post("/auth/supabase-session", { supabase_token: token }, { timeout: 8000 })
+            .then((res) => localStorage.setItem(TOKEN_KEY, res.data.access_token)),
+        ]).then((results) => {
+          results.forEach((r) => {
+            if (r.status === "rejected")
+              console.warn("Background auth sync failed (non-fatal):", r.reason);
+          });
+        });
+      });
     } catch (err: unknown) {
       const msg =
         err instanceof Error && err.message
@@ -224,8 +220,11 @@ export default function ResetPassword() {
         {pageState === "success" && (
           <div className="mt-4 space-y-4">
             <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3 text-center">
-              Password reset successfully!
+              &#9989; Password reset successfully!
             </div>
+            <p className="text-xs text-gray-400 text-center">
+              You may need to sign in with your new password.
+            </p>
             <button
               onClick={() => navigate("/")}
               className="w-full bg-[#FF6600] text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 transition"

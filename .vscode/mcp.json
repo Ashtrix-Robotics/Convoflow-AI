@@ -42,7 +42,7 @@
 				"SKIP_EXTERNAL_RESOLUTION": "false"
 			}
 		},
-		"com.supabase/mcp": {
+		"convoflow.supabase/mcp": {
 			"type": "stdio",
 			"command": "npx",
 			"args": [
@@ -52,7 +52,7 @@
 				"dwswmirwfsqkerybszsg"
 			],
 			"env": {
-				"SUPABASE_ACCESS_TOKEN": "sbp_332872114a666f38595e225602ec8a2ffd6dabfb"
+				"SUPABASE_ACCESS_TOKEN": "sbp_48498de731f148128aecd1e3e95ba31ae53de3bf"
 			}
 		}
 	},

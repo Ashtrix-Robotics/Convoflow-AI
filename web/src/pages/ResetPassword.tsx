@@ -23,27 +23,33 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Supabase SDK auto-processes the URL fragment and fires an AUTH_STATE_CHANGE event.
-    // Wait for a PASSWORD_RECOVERY session before showing the form.
+    // Supabase SDK auto-processes the URL fragment and fires PASSWORD_RECOVERY.
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setPageState("form");
       }
     });
 
-    // Also check immediately — in case the event fired before we subscribed.
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setPageState("form");
-      } else {
-        // Give the SDK 3 s to process the fragment before declaring invalid.
-        setTimeout(() => {
-          supabase.auth.getSession().then(({ data: late }) => {
-            if (!late.session) setPageState("invalid");
-          });
-        }, 3000);
-      }
-    });
+    // Check immediately — the SDK may have already processed the hash before
+    // we subscribed. We only want to show the form for recovery sessions, so
+    // verify the URL had a recovery fragment OR check the session's token type.
+    const hash = window.location.hash;
+    const isRecoveryUrl =
+      hash.includes("type=recovery") || hash.includes("access_token");
+
+    if (isRecoveryUrl) {
+      // The SDK is still processing the hash — wait for onAuthStateChange
+      // PASSWORD_RECOVERY event (already subscribed above). Set a 5s fallback.
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) setPageState("form");
+      });
+      setTimeout(() => {
+        setPageState((prev) => (prev === "loading" ? "invalid" : prev));
+      }, 5000);
+    } else {
+      // No recovery token in URL — immediately invalid
+      setPageState("invalid");
+    }
 
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -63,33 +69,57 @@ export default function ResetPassword() {
         await supabase.auth.updateUser({
           password: newPwd,
         });
-      if (updateErr || !updated.user) {
-        throw new Error(updateErr?.message ?? "Supabase update failed");
+
+      if (updateErr) {
+        // Provide human-readable messages for known Supabase error codes
+        const code = (updateErr as { code?: string }).code;
+        if (code === "same_password") {
+          throw new Error(
+            "Your new password must be different from your current password.",
+          );
+        }
+        if (code === "weak_password") {
+          throw new Error(
+            "Password is too weak. Please use at least 8 characters.",
+          );
+        }
+        throw new Error(
+          updateErr.message ||
+            "Failed to update password. Please try again.",
+        );
+      }
+      if (!updated.user) {
+        throw new Error("Session expired. Please request a new reset link.");
       }
 
       // 2. Sync the new password to the platform DB so mobile login also works.
+      //    These calls are non-fatal and have a short timeout to avoid hanging
+      //    if the backend is still waking up (Render free tier).
       const { data: session } = await supabase.auth.getSession();
       if (session.session?.access_token) {
         try {
-          await api.post("/auth/reset-platform-password", {
-            supabase_token: session.session.access_token,
-            new_password: newPwd,
-          });
-        } catch {
-          // Non-fatal — Supabase session is fixed; platform sync failure
-          // just means mobile login still uses the old password.
-          console.warn(
-            "Platform password sync failed — web login is fixed, mobile may need manual reset.",
+          await api.post(
+            "/auth/reset-platform-password",
+            {
+              supabase_token: session.session.access_token,
+              new_password: newPwd,
+            },
+            { timeout: 8000 },
           );
+        } catch {
+          // Non-fatal — web login is fixed; mobile may need manual reset.
+          console.warn("Platform password sync failed — continuing.");
         }
       }
 
       // 3. Exchange the new Supabase session for a platform JWT and log in.
       if (session.session?.access_token) {
         try {
-          const res = await api.post("/auth/supabase-session", {
-            supabase_token: session.session.access_token,
-          });
+          const res = await api.post(
+            "/auth/supabase-session",
+            { supabase_token: session.session.access_token },
+            { timeout: 8000 },
+          );
           localStorage.setItem(TOKEN_KEY, res.data.access_token);
         } catch {
           // Could not get platform JWT; user will need to log in manually.
@@ -99,7 +129,9 @@ export default function ResetPassword() {
       setPageState("success");
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Failed to reset password.";
+        err instanceof Error && err.message
+          ? err.message
+          : "Failed to reset password. Please try again.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -143,8 +175,9 @@ export default function ResetPassword() {
             </p>
 
             {error && (
-              <div className="bg-red-50 text-red-600 text-sm rounded-lg px-4 py-2 mb-4">
-                {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4 flex items-start gap-2">
+                <span className="mt-0.5 shrink-0">&#9888;</span>
+                <span>{error}</span>
               </div>
             )}
 

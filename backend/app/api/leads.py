@@ -1,11 +1,13 @@
 from __future__ import annotations
 """
-Lead management API — inbound webhook from Pabbly (Google Sheets) + CRUD.
+Lead management API — inbound webhook from Pabbly (Facebook Lead Ads / other sources) + CRUD.
 """
 
 import hashlib
 import hmac
 import json
+import logging
+import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Request, status
@@ -14,7 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.models import Agent, CallRecord, ClassBatch, ClassCenter, Lead
+from app.models.models import Agent, AppSetting, CallRecord, ClassBatch, ClassCenter, Lead
 from app.schemas.schemas import BulkLeadAction, BulkLeadResult, LeadCreate, LeadInbound, LeadOut, LeadUpdate
 from app.api.deps import get_current_agent
 from app.services.aisensy import sync_lead_whatsapp_state
@@ -22,11 +24,108 @@ from app.services.google_sheets import upsert_lead as sheets_upsert
 from app.services.pabbly import fire_event
 from app.services.phone_numbers import normalize_phone_number, phone_lookup_variants, phones_match
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
 # ---------------------------------------------------------------------------
-# Inbound webhook — Pabbly fires this when a new Google Sheets row appears
+# Field mapping cache — loads admin-configured mapping with 60s TTL
+# ---------------------------------------------------------------------------
+_field_mapping_cache: dict | None = None
+_field_mapping_ts: float = 0
+
+# Lead fields that can be set via the field mapping
+_MAPPABLE_LEAD_FIELDS = {"name", "phone", "email", "source_campaign", "ad_set", "form_id", "form_name"}
+
+_DEFAULT_FIELD_MAPPING = {
+    "full_name": "name", "first_name": "name", "last_name": "name",
+    "phone_number": "phone", "mobile_number": "phone", "mobile": "phone", "contact_number": "phone",
+    "email_address": "email",
+    "campaign_name": "source_campaign", "adset_name": "ad_set",
+    "form_id": "form_id", "form_name": "form_name",
+}
+
+
+def _get_field_mapping(db: Session) -> dict[str, str]:
+    """Return the admin-configured Facebook field mapping (cached for 60s)."""
+    global _field_mapping_cache, _field_mapping_ts
+    now = time.monotonic()
+    if _field_mapping_cache is not None and (now - _field_mapping_ts) < 60:
+        return _field_mapping_cache
+
+    row = db.query(AppSetting).filter(AppSetting.key == "facebook_field_mappings").first()
+    if row and row.value:
+        try:
+            mapping = json.loads(row.value)
+            if isinstance(mapping, dict):
+                _field_mapping_cache = mapping
+                _field_mapping_ts = now
+                return _field_mapping_cache
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    _field_mapping_cache = dict(_DEFAULT_FIELD_MAPPING)
+    _field_mapping_ts = now
+    return _field_mapping_cache
+
+
+def _apply_field_mapping(
+    lead_in: LeadInbound,
+    mapping: dict[str, str],
+) -> tuple[dict[str, str | None], dict[str, str]]:
+    """
+    Apply admin-configured field mapping to the raw inbound payload.
+
+    Returns (mapped_fields, extra_data) where:
+      - mapped_fields: dict of lead-model field → value  (name, phone, email, ...)
+      - extra_data:    dict of unmapped key → value
+    """
+    # Collect ALL incoming fields: explicit schema fields + model_extra
+    raw: dict[str, str] = {}
+    for field_name in ("name", "phone", "email", "source_campaign", "ad_set",
+                       "google_sheet_row_id", "form_id", "form_name"):
+        val = getattr(lead_in, field_name, None)
+        if val:
+            raw[field_name] = val
+    if hasattr(lead_in, "model_extra") and lead_in.model_extra:
+        raw.update(lead_in.model_extra)
+
+    mapped: dict[str, str | None] = {}
+    extra: dict[str, str] = {}
+    name_parts: list[str] = []  # for first_name + last_name concatenation
+
+    for key, value in raw.items():
+        if not value:
+            continue
+        str_value = str(value).strip()
+        if not str_value:
+            continue
+
+        target = mapping.get(key)
+        if target and target in _MAPPABLE_LEAD_FIELDS:
+            if target == "name" and key in ("first_name", "last_name"):
+                name_parts.append(str_value)
+            elif target == "name":
+                # full_name or direct "name" — takes priority over parts
+                mapped["name"] = str_value
+            else:
+                mapped[target] = str_value
+        elif key in _MAPPABLE_LEAD_FIELDS:
+            # The key itself is a known lead field (e.g. "phone", "email")
+            mapped.setdefault(key, str_value)
+        else:
+            extra[key] = str_value
+
+    # Combine first_name + last_name if no full_name was set
+    if name_parts and "name" not in mapped:
+        mapped["name"] = " ".join(name_parts)
+
+    return mapped, extra
+
+
+# ---------------------------------------------------------------------------
+# Inbound webhook — Pabbly fires this from Facebook Lead Ads (or other sources)
 # ---------------------------------------------------------------------------
 
 @router.post("/inbound", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
@@ -38,10 +137,12 @@ async def inbound_lead(
     db: Session = Depends(get_db),
 ):
     """
-    Receive a new lead from Pabbly Connect (Google Sheets new-row trigger).
+    Receive a new lead from Pabbly Connect (Facebook Lead Ads or other sources).
+    - Applies admin-configured field mapping for dynamic form schemas
     - Verifies HMAC signature when configured
     - Deduplicates by phone number (upserts)
     - Round-robin assigns to an active agent
+    - Unmapped fields are stored in extra_data automatically
     """
     # Verify signature if secret is configured
     if settings.pabbly_secret_key and x_pabbly_signature:
@@ -56,8 +157,26 @@ async def inbound_lead(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook signature"
             )
 
+    # Apply admin-configured field mapping
+    mapping = _get_field_mapping(db)
+    mapped_fields, extra_data = _apply_field_mapping(lead_in, mapping)
+
+    # Resolve final field values (mapped values take priority)
+    name = mapped_fields.get("name") or lead_in.name or ""
+    phone = mapped_fields.get("phone") or lead_in.phone or ""
+    email = mapped_fields.get("email") or lead_in.email
+    source_campaign = mapped_fields.get("source_campaign") or lead_in.source_campaign
+    ad_set = mapped_fields.get("ad_set") or lead_in.ad_set
+    form_id = mapped_fields.get("form_id") or lead_in.form_id
+    form_name = mapped_fields.get("form_name") or lead_in.form_name
+
+    if not phone:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Phone number is required")
+    if not name:
+        name = "Unknown"
+
     normalized_phone = normalize_phone_number(
-        lead_in.phone,
+        phone,
         settings.aisensy_default_country_code,
     )
     if not normalized_phone:
@@ -78,18 +197,23 @@ async def inbound_lead(
     )
     if existing:
         existing.phone = normalized_phone
-        # Update fields that may have changed
-        if lead_in.name:
-            existing.name = lead_in.name
-        if lead_in.email:
-            existing.email = lead_in.email
-        if lead_in.source_campaign:
-            existing.source_campaign = lead_in.source_campaign
-        
-        # Merge extra payload columns into extra_data
-        if hasattr(lead_in, "model_extra") and lead_in.model_extra:
+        if name and name != "Unknown":
+            existing.name = name
+        if email:
+            existing.email = email
+        if source_campaign:
+            existing.source_campaign = source_campaign
+        if ad_set:
+            existing.ad_set = ad_set
+        if form_id:
+            existing.form_id = form_id
+        if form_name:
+            existing.form_name = form_name
+
+        # Merge extra payload fields into extra_data
+        if extra_data:
             current_extra = existing.extra_data or {}
-            current_extra.update(lead_in.model_extra)
+            current_extra.update(extra_data)
             existing.extra_data = current_extra
 
         existing.updated_at = datetime.now(timezone.utc)
@@ -115,15 +239,14 @@ async def inbound_lead(
             key=lambda aid: count_map.get(aid, 0),
         )
 
-    # Initialize extra_data if there are extra columns
-    extra_data = lead_in.model_extra if hasattr(lead_in, "model_extra") and lead_in.model_extra else {}
-
     lead = Lead(
-        name=lead_in.name,
+        name=name,
         phone=normalized_phone,
-        email=lead_in.email,
-        source_campaign=lead_in.source_campaign,
-        ad_set=lead_in.ad_set,
+        email=email,
+        source_campaign=source_campaign,
+        ad_set=ad_set,
+        form_id=form_id,
+        form_name=form_name,
         extra_data=extra_data,
         assigned_agent_id=assigned_agent_id,
         status="new",
@@ -140,6 +263,7 @@ async def inbound_lead(
         "phone": lead.phone,
         "email": lead.email or "",
         "source_campaign": lead.source_campaign or "",
+        "form_name": lead.form_name or "",
         "assigned_agent": assigned_agent_id or "",
     })
 

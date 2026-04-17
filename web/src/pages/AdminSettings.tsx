@@ -350,6 +350,143 @@ function CustomFieldsEditor({
   );
 }
 
+// Target lead fields that can be mapped to
+const LEAD_TARGET_FIELDS = [
+  { value: "name", label: "Name" },
+  { value: "phone", label: "Phone" },
+  { value: "email", label: "Email" },
+  { value: "source_campaign", label: "Campaign" },
+  { value: "ad_set", label: "Ad Set" },
+  { value: "form_id", label: "Form ID" },
+  { value: "form_name", label: "Form Name" },
+  { value: "__extra_data__", label: "→ Extra Data (custom)" },
+];
+
+function FacebookFieldMappingEditor({
+  settings,
+  onSave,
+  isSaving,
+}: {
+  settings: Setting[];
+  onSave: (value: string) => void;
+  isSaving: boolean;
+}) {
+  const raw = settings.find((s) => s.key === "facebook_field_mappings")?.value ?? "{}";
+  let parsed: Record<string, string> = {};
+  try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+  const [pairs, setPairs] = useState<[string, string][]>([]);
+  const [dirty, setDirty] = useState(false);
+
+  // Sync from server
+  useEffect(() => {
+    const entries = Object.entries(parsed);
+    if (entries.length > 0) {
+      setPairs(entries.map(([k, v]) => [k, v]));
+    }
+    setDirty(false);
+  }, [raw]);
+
+  const updatePair = (idx: number, field: 0 | 1, value: string) => {
+    const next = [...pairs];
+    next[idx] = [...next[idx]] as [string, string];
+    next[idx][field] = value;
+    setPairs(next);
+    setDirty(true);
+  };
+
+  const removePair = (idx: number) => {
+    setPairs(pairs.filter((_, i) => i !== idx));
+    setDirty(true);
+  };
+
+  const addPair = () => {
+    setPairs([...pairs, ["", "name"]]);
+    setDirty(true);
+  };
+
+  const save = () => {
+    const obj: Record<string, string> = {};
+    for (const [k, v] of pairs) {
+      const key = k.trim().toLowerCase().replace(/\s+/g, "_");
+      if (key && v) obj[key] = v === "__extra_data__" ? "__extra_data__" : v;
+    }
+    onSave(JSON.stringify(obj));
+    setDirty(false);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5 border border-purple-200">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xl">🔀</span>
+        <h3 className="font-bold text-gray-800 text-lg">Facebook Field Mapping</h3>
+      </div>
+      <p className="text-sm text-gray-500 mb-1">
+        Map incoming Facebook Lead Ads field names to lead fields. Different forms may use different names for phone, email, etc.
+      </p>
+      <p className="text-xs text-gray-400 mb-4">
+        Fields not listed here will be stored in <strong>extra_data</strong> automatically and appear as dynamic columns in the dashboard.
+      </p>
+
+      <div className="space-y-2 mb-4">
+        {/* Header row */}
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center text-xs font-semibold text-gray-500 px-1">
+          <span>Incoming Field Name</span>
+          <span></span>
+          <span>Maps To</span>
+          <span></span>
+        </div>
+
+        {pairs.map(([incoming, target], idx) => (
+          <div key={idx} className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center">
+            <input
+              value={incoming}
+              onChange={(e) => updatePair(idx, 0, e.target.value)}
+              placeholder="e.g. phone_number"
+              className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            />
+            <span className="text-gray-400 text-sm">→</span>
+            <select
+              value={target}
+              onChange={(e) => updatePair(idx, 1, e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            >
+              {LEAD_TARGET_FIELDS.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => removePair(idx)}
+              className="text-red-400 hover:text-red-600 text-lg px-1"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={addPair}
+          className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+        >
+          + Add mapping
+        </button>
+        {dirty && (
+          <button
+            onClick={save}
+            disabled={isSaving}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
+          >
+            {isSaving ? "Saving…" : "Save Mappings"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const qc = useQueryClient();
 
@@ -770,6 +907,8 @@ export default function AdminSettings() {
             </div>
           )}
         </div>
+        {/* Facebook Field Mapping */}
+        <FacebookFieldMappingEditor settings={settings} onSave={(value: string) => updateMutation.mutate({ key: "facebook_field_mappings", value })} isSaving={updateMutation.isPending} />
         {/* Google Sheets sync */}
         <div className="bg-white rounded-xl shadow-sm p-5 border border-green-200">
           <div className="flex items-center gap-2 mb-1">
@@ -853,16 +992,15 @@ export default function AdminSettings() {
           {/* Action buttons */}
           {sheetsStatus?.configured && (
             <div className="space-y-3">
-              {/* Pull from Sheet */}
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              {/* Pull from Sheet — disabled: leads now ingested via Facebook Lead Ads */}
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 opacity-60">
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-blue-800">
+                  <p className="text-sm font-semibold text-gray-500">
                     ⬇️ Pull Leads from Sheet
                   </p>
-                  <p className="text-xs text-blue-600 mt-0.5">
-                    Import leads from the source sheet tab into the database.
-                    Deduplicates by phone number — existing leads are updated,
-                    new ones are created.
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Disabled — leads are now ingested directly from Facebook Lead Ads via Pabbly Connect.
+                    The Google Sheet pull is no longer needed.
                   </p>
                   {pullResult &&
                     (pullResult.error ? (
@@ -915,22 +1053,11 @@ export default function AdminSettings() {
                     ))}
                 </div>
                 <button
-                  onClick={() =>
-                    setConfirmModal({
-                      open: true,
-                      title: "Pull Leads from Google Sheet",
-                      description: `This will read all rows from "${sourceSheetName || currentSourceSheet || "Sheet1"}" and import them into the database.`,
-                      impact:
-                        "• New leads will be created for phone numbers not already in the database.\n• Existing leads (matched by phone) will have their fields updated.\n• No leads will be deleted.\n• This does NOT affect the Google Sheet itself.",
-                      confirmLabel: "Pull Leads",
-                      variant: "info",
-                      onConfirm: runPull,
-                    })
-                  }
-                  disabled={pullLoading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                  disabled
+                  title="Leads are now ingested directly from Facebook Lead Ads via Pabbly"
+                  className="bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-semibold cursor-not-allowed opacity-50 whitespace-nowrap"
                 >
-                  {pullLoading ? "Pulling…" : "Pull from Sheet"}
+                  Pull from Sheet
                 </button>
               </div>
 

@@ -191,15 +191,17 @@ class ClientOut(ClientCreate):
 # ---------------------------------------------------------------------------
 
 class LeadInbound(BaseModel):
-    """Payload received from Pabbly when a new Google Sheets row is added."""
+    """Payload received from Pabbly (Facebook Lead Ads or other sources)."""
     model_config = ConfigDict(extra="allow")
 
-    name: str
-    phone: str
+    name: str = ""
+    phone: str = ""
     email: str | None = None
     source_campaign: str | None = None
     ad_set: str | None = None
     google_sheet_row_id: str | None = None
+    form_id: str | None = None
+    form_name: str | None = None
 
 
 class LeadCreate(BaseModel):
@@ -208,6 +210,8 @@ class LeadCreate(BaseModel):
     email: str | None = None
     source_campaign: str | None = None
     ad_set: str | None = None
+    form_id: str | None = None
+    form_name: str | None = None
     notes: str | None = None
     extra_data: dict | None = None
 
@@ -239,6 +243,8 @@ class LeadOut(BaseModel):
     source_campaign: str | None
     ad_set: str | None
     google_sheet_row_id: str | None
+    form_id: str | None = None
+    form_name: str | None = None
     assigned_agent_id: str | None
     intent_category: str
     intent_confidence: float | None

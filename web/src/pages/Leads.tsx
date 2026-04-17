@@ -74,6 +74,7 @@ const SORTABLE_COLS: Record<string, string> = {
   Intent: "intent_category",
   Interest: "interest_level",
   Campaign: "source_campaign",
+  Form: "form_name",
   Followup: "next_followup_at",
   Updated: "updated_at",
   Center: "class_center_name",
@@ -120,6 +121,7 @@ const FILTER_FIELDS = [
   },
   { key: "source_campaign", label: "Campaign", options: null as null },
   { key: "ad_set", label: "Ad Set", options: null as null },
+  { key: "form_name", label: "Form", options: null as null },
 ];
 
 // Fields that use exact match (not substring) when filtering.
@@ -501,6 +503,7 @@ export default function Leads() {
       "class_center_name",
       "source_campaign",
       "ad_set",
+      "form_name",
     ];
     for (const lead of leads) {
       for (const f of topFields) {
@@ -1054,6 +1057,11 @@ export default function Leads() {
                             {lead.source_campaign}
                           </span>
                         )}
+                        {lead.form_name && (
+                          <span className="text-[10px] text-purple-400 truncate">
+                            {lead.form_name}
+                          </span>
+                        )}
                       </div>
                       {lead.callback_scheduled_at && (
                         <p className="text-[10px] text-yellow-600 mt-1">
@@ -1109,6 +1117,7 @@ export default function Leads() {
                         "Batch",
                         "Enrolled",
                         "Campaign",
+                        "Form",
                         "Followup",
                         "Updated",
                       ] as const
@@ -1248,6 +1257,9 @@ export default function Leads() {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         {lead.source_campaign || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {lead.form_name || "—"}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                         {lead.next_followup_at

@@ -218,6 +218,10 @@ _KNOWN_SETTINGS = {
         "default": "[\"none\",\"demo_scheduled\",\"demo_attended\",\"enrolled\",\"dropped\"]",
         "description": "JSON array of enrollment status options available in the assignment dropdown. Edit to add or remove statuses.",
     },
+    "facebook_field_mappings": {
+        "default": '{"full_name":"name","first_name":"name","last_name":"name","phone_number":"phone","mobile_number":"phone","mobile":"phone","contact_number":"phone","email_address":"email","campaign_name":"source_campaign","adset_name":"ad_set","form_id":"form_id","form_name":"form_name"}',
+        "description": "JSON object mapping incoming Facebook Lead Ads field names to lead fields. Keys = incoming field name, values = target lead field (name, phone, email, source_campaign, ad_set, form_id, form_name). Unmapped fields are stored in extra_data automatically.",
+    },
 }
 
 

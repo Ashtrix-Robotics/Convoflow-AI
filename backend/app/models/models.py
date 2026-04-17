@@ -117,6 +117,10 @@ class Lead(Base):
     ad_set: Mapped[Optional[str]] = mapped_column(String(255))
     google_sheet_row_id: Mapped[Optional[str]] = mapped_column(String(100))
 
+    # Facebook Lead Ads form tracking
+    form_id: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    form_name: Mapped[Optional[str]] = mapped_column(String(255))
+
     # Assignment
     assigned_agent_id: Mapped[Optional[str]] = mapped_column(ForeignKey("agents.id"))
 

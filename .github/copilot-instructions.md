@@ -27,7 +27,7 @@
 ## Automation & Pabbly Connect
 
 - Pabbly Connect acts as the primary automation engine.
-- **CRITICAL RESTRICTION**: You are strictly prohibited from modifying, deleting, or altering any existing Pabbly Connect workflows, tasks, or automation steps.
+- **CRITICAL RESTRICTION**: You are strictly prohibited from modifying, deleting, or altering any existing Pabbly Connect workflows, tasks, or automation steps, **EXCEPTION**: The workflow "CLONE - [Summer Camp Leads Meta to GSheet]" is exempt from this restriction and can be modified or managed using the Playwright MCP server browser actions.
 - Use the Pabbly Connect MCP server (configured in `.vscode/mcp.json`) strictly for monitoring and reading workflow statuses.
 - Webhooks are triggered from the backend using signed HMAC-SHA256 payloads.
 

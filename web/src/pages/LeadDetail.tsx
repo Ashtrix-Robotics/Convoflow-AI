@@ -845,6 +845,21 @@ export default function LeadDetail() {
                 {lead.followup_count ?? 0}
               </p>
             </div>
+            {(lead.form_name || lead.form_id) && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide">
+                  Lead Form
+                </p>
+                <p className="font-medium text-gray-700">
+                  {lead.form_name || lead.form_id}
+                </p>
+                {lead.form_name && lead.form_id && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    ID: {lead.form_id}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Class assignment summary badge */}
